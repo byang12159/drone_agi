@@ -104,6 +104,7 @@ def callback(frame):
         frame_mutex.release()
 
 # Declare RealSense pipeline, encapsulating the actual device and sensors
+print("Starting")
 pipe = rs.pipeline()
 
 # Build config object and stream everything
