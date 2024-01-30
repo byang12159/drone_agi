@@ -51,6 +51,8 @@ try:
         # Convert images to numpy arrays
         depth_image = np.asanyarray(depth_frame.get_data())
         color_image = np.asanyarray(color_frame.get_data())
+        color_image = cv2.circle(color_image, (200,200),5,(0,255,0),2)
+        depth_image = cv2.circle(depth_image, (200,200),5,(0,255,0),2)
 
         # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
         depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
