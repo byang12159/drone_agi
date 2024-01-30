@@ -146,7 +146,6 @@ while True:
     if key & 0xFF == ord('q') or key == 27:
         cv2.destroyAllWindows()
         break
-    break
 
 # Release the camera and close all OpenCV windows
 cap.release()
