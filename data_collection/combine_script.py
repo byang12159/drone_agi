@@ -16,12 +16,28 @@ cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 # Specify the folder to save images
-output_folder = "captured_frames_raw"
+output_folder_1 = "captured_frames_raw"
 
 # Create the output folder if it doesn't exist
-if not os.path.exists(output_folder):
-    os.makedirs(output_folder)
-    print(f"Created folder: {output_folder}")
+if not os.path.exists(output_folder_1):
+    os.makedirs(output_folder_1)
+    print(f"Created folder: {output_folder_1}")
+
+# Specify the folder to save images
+output_folder_2 = "realsense_color"
+
+# Create the output folder if it doesn't exist
+if not os.path.exists(output_folder_2):
+    os.makedirs(output_folder_2)
+    print(f"Created folder: {output_folder_2}")
+
+# Specify the folder to save images
+output_folder_3 = "realsense_depth"
+
+# Create the output folder if it doesn't exist
+if not os.path.exists(output_folder_3):
+    os.makedirs(output_folder_3)
+    print(f"Created folder: {output_folder_3}")
 
 # Variable to track the number of frames captured
 frame_count = 0
@@ -93,12 +109,11 @@ while True:
     if key == 27:
         print("Exiting...")
         break
-    elif key == ord('c'):
-        # Save the frame when the 'c' key is pressed
-        frame_count += 1
-        file_path = os.path.join(output_folder, f"captured_frame_{frame_count}.jpg")
-        cv2.imwrite(file_path, frame)
-        print(f"Frame {frame_count} captured and saved to: {file_path}")
+
+    frame_count += 1
+    file_path = os.path.join(output_folder_1, f"captured_frame_{frame_count}.jpg")
+    cv2.imwrite(file_path, frame)
+    print(f"Frame {frame_count} captured and saved to: {file_path}")
     
     # Get frameset of color and depth
     frames = pipeline.wait_for_frames()
@@ -138,6 +153,14 @@ while True:
 
     cv2.imwrite("realsense_color.jpg", color_image)
     cv2.imwrite("realsense_depth.jpg", depth_colormap)
+
+    file_path = os.path.join(output_folder_2, f"realsense_color_{frame_count}.jpg")
+    cv2.imwrite(file_path, frame)
+    print(f"Frame {frame_count} captured and saved to: {file_path}")
+
+    file_path = os.path.join(output_folder_3, f"realsense_depth_{frame_count}.jpg")
+    cv2.imwrite(file_path, frame)
+    print(f"Frame {frame_count} captured and saved to: {file_path}")
 
     cv2.namedWindow('Align Example', cv2.WINDOW_NORMAL)
     cv2.imshow('Align Example', images)
