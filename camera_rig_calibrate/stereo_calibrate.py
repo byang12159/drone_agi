@@ -9,11 +9,11 @@ import glob
 import argparse
 
 # Checker board: Number of object points
-intersections_x = 6
-intersections_y = 9
+intersections_x = 4
+intersections_y = 6
 
 class StereoCalibration(object):
-    def __init__(self, filepath):
+    def __init__(self):
         # termination criteria
         self.criteria = (cv2.TERM_CRITERIA_EPS +
                          cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -29,18 +29,23 @@ class StereoCalibration(object):
         self.imgpoints_l = []  # 2d points in image plane.
         self.imgpoints_r = []  # 2d points in image plane.
 
-        self.cal_path = filepath
+        self.cal_path = "./"
         self.read_images(self.cal_path)
 
     def read_images(self, cal_path):
-        images_right = glob.glob(cal_path + 'checkerboard_picam/*.JPG')
-        images_left = glob.glob(cal_path + 'checkerboard_D435i/*.JPG')
+        images_right = glob.glob(cal_path + 'checkerboard_picam/*.jpg')
+        images_left = glob.glob(cal_path + 'checkerboard_D435i/*.jpg')
         images_left.sort()
         images_right.sort()
 
+        print("Total number of left images ",len(images_left))
+        print("Total number of right images ",len(images_right))
+
         for i, fname in enumerate(images_right):
+            print("processing photo number ",i)
             img_l = cv2.imread(images_left[i])
             img_r = cv2.imread(images_right[i])
+            img_r = cv2.flip(img_r,-1)
 
             gray_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2GRAY)
             gray_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2GRAY)
@@ -74,11 +79,20 @@ class StereoCalibration(object):
                 cv2.imshow(images_right[i], img_r)
                 cv2.waitKey(500)
             img_shape = gray_l.shape[::-1]
+            # print("imgshape",img_shape)
 
+        # Realsense
         rt, self.M1, self.d1, self.r1, self.t1 = cv2.calibrateCamera(
             self.objpoints, self.imgpoints_l, img_shape, None, None)
+        # Picam 
         rt, self.M2, self.d2, self.r2, self.t2 = cv2.calibrateCamera(
             self.objpoints, self.imgpoints_r, img_shape, None, None)
+        
+        self.M1 = np.array([[604.735, 0.0, 318.968],
+                        [0.0, 604.735, 244.451],
+                        [0.0, 0.0, 1.0]])
+        self.d1 = np.array([[0.0, 0.0, 0.0, 0.0, 0.0]])
+
 
         self.camera_model = self.stereo_calibrate(img_shape)
 
@@ -132,8 +146,8 @@ class StereoCalibration(object):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('filepath', help='String Filepath')
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('filepath', help='String Filepath')
+    # args = parser.parse_args()
 
-    cal_data = StereoCalibration(args.filepath)
+    cal_data = StereoCalibration()
