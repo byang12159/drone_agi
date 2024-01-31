@@ -49,17 +49,7 @@ def detect_aruco(cap=None, save=None, visualize=True, marker_size=100):
     def cleanup():
         cleanup_cap()
 
-    if usb:
-        ret, frame = cap.read()
-    else:
-        # Get frameset of color and depth
-        frames = cam.wait_for_frames()
-        # frames.get_depth_frame() is a 640x360 depth image
-
-        # Get aligned frames
-        # aligned_depth_frame = aligned_frames.get_depth_frame() # aligned_depth_frame is a 640x480 depth image
-        frame = frames.get_color_frame()
-    
+    ret, frame = cap.read()
     width = int(frame.shape[1] * scale)
     height = int(frame.shape[0] * scale)
     dim = (width, height)
@@ -126,6 +116,8 @@ def detect_aruco_realsense(pipeline=None, align = None, save=None, visualize=Tru
     color_image = cv2.circle(color_image, (200,200),5,(0,255,0),2)
     depth_image = cv2.circle(depth_image, (200,200),5,(0,255,0),2)
 
+    color_intrin = color_frame.profile.as_video_stream_profile().intrinsics
+    print(color_intrin)
     width = 640
     height = 480
     dim = (width, height)
@@ -229,7 +221,9 @@ def release_camera_realsense(pipeline):
 
 
 if __name__ == "__main__":
-    
+#     x:-0.34 y:-0.31 z:0.92
+# Translation x:0.16 y:0.24 z:0.57
+
     
     usb = False
     if usb == True:
@@ -260,9 +254,12 @@ if __name__ == "__main__":
         release_camera(cam)
 
     else:
-        camera_mtx = np.array([[907.1031494140625, 0.0, 638.451416015625],
-                               [0.0, 907.1742553710938, 366.6768493652344],
-                                [0.0, 0.0, 1.0]])
+        # camera_mtx = np.array([[907.1031494140625, 0.0, 638.451416015625],
+        #                        [0.0, 907.1742553710938, 366.6768493652344],
+        #                         [0.0, 0.0, 1.0]])
+        camera_mtx = np.array([[604.735, 0.0, 318.968],
+                        [0.0, 604.735, 244.451],
+                        [0.0, 0.0, 1.0]])
 
         camera_mtx = camera_mtx * scale
         camera_mtx[2,2] = 1.
