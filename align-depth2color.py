@@ -98,13 +98,14 @@ try:
 
         cv2.namedWindow('Align Example', cv2.WINDOW_NORMAL)
         cv2.imshow('Align Example', images)
-        key = cv2.waitKey(1)
+        key = cv2.waitKey(0)
         # Press esc or 'q' to close the image window
         if key & 0xFF == ord('q') or key == 27:
             cv2.destroyAllWindows()
             break
         break
 finally:
+    print("ending")
     pipeline.stop()
 
 
