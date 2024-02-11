@@ -14,7 +14,7 @@ cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 # Specify the folder to save images
-output_folder = "captured_frames_raw"
+output_folder = "captured_frames_raw_data"
 
 # Create the output folder if it doesn't exist
 if not os.path.exists(output_folder):
