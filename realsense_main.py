@@ -1,6 +1,6 @@
 import cv2
 import pyrealsense2
-from realsense_D435i import *
+from D435i_resources.realsense_D435i import *
 
 point = (400, 300)
 
