@@ -174,7 +174,7 @@ while True:
         x_coordiantes.append(cX)
         y_coordiantes.append(cY)
     f = 489.5384
-    if x_coordiantes.len() < 2 or y_coordiantes.len() < 2:
+    if len(x_coordiantes) < 2 or len(y_coordiantes) < 2:
         break
     drone_center_x = (x_coordiantes[0]+x_coordiantes[1])/2
     drone_center_y = (y_coordiantes[0]+y_coordiantes[1])/2
