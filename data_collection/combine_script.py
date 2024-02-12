@@ -94,7 +94,7 @@ align = rs.align(align_to)
 
 print(rs.intrinsics())
 f = open("x_y_algorithm_data", "w")
-f.wite("x   y   depth\n")
+f.write("x   y   depth\n")
 f.close()
 while True:
     # Capture frame-by-frame
@@ -190,7 +190,7 @@ while True:
     file_path = os.path.join(output_folder_1, f"captured_frame_{frame_count}.jpg")
     cv2.imwrite(file_path, frame)
     print(f"Frame {frame_count} captured and saved to: {file_path}")
-    
+
     file_path = os.path.join(output_folder_2, f"realsense_color_{frame_count}.jpg")
     cv2.imwrite(file_path, frame)
     print(f"Frame {frame_count} captured and saved to: {file_path}")
