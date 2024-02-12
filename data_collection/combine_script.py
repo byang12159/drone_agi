@@ -3,6 +3,8 @@ import os
 import pyrealsense2 as rs
 import numpy as np
 
+
+
 # Open a video capture object for the USB camera (usually 0 or 1 depending on your setup)
 cap = cv2.VideoCapture(0)
 
@@ -91,7 +93,9 @@ align_to = rs.stream.color
 align = rs.align(align_to)
 
 print(rs.intrinsics())
-
+f = open("x_y_algorithm_data", "w")
+f.wite("x   y   depth\n")
+f.close()
 while True:
     # Capture frame-by-frame
     ret, frame = cap.read()
@@ -110,10 +114,6 @@ while True:
         print("Exiting...")
         break
 
-    frame_count += 1
-    file_path = os.path.join(output_folder_1, f"captured_frame_{frame_count}.jpg")
-    cv2.imwrite(file_path, frame)
-    print(f"Frame {frame_count} captured and saved to: {file_path}")
     
     # Get frameset of color and depth
     frames = pipeline.wait_for_frames()
@@ -154,6 +154,43 @@ while True:
     cv2.imwrite("realsense_color.jpg", color_image)
     cv2.imwrite("realsense_depth.jpg", depth_colormap)
 
+    greenLower = (40, 50, 60)
+    greenUpper = (68, 255, 255)
+    img = color_image
+    blurred = cv2.GaussianBlur(img, (11, 11), 0)
+    hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, greenLower, greenUpper)
+    mask = cv2.erode(mask, None, iterations=2)
+    mask = cv2.dilate(mask, None, iterations=2)
+    x_coordiantes = []
+    y_coordiantes = []
+    ret,thresh = cv2.threshold(mask,127,255,0)
+    contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    for c in contours:
+        M = cv2.moments(c)
+
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+        x_coordiantes.append(cX)
+        y_coordiantes.append(cY)
+    f = 489.5384
+    if x_coordiantes.len() < 2 or y_coordiantes.len() < 2:
+        break
+    drone_center_x = (x_coordiantes[0]+x_coordiantes[1])/2
+    drone_center_y = (y_coordiantes[0]+y_coordiantes[1])/2
+    depth = aligned_depth_frame[drone_center_x,drone_center_y]
+    x = ((drone_center_x)/f)*depth
+    y = ((drone_center_y)/f)*depth
+    f = open("x_y_algorithm_data", "a")
+    f.wite(x,y,depth)
+    f.wite("\n")
+    f.close()
+
+    frame_count += 1
+    file_path = os.path.join(output_folder_1, f"captured_frame_{frame_count}.jpg")
+    cv2.imwrite(file_path, frame)
+    print(f"Frame {frame_count} captured and saved to: {file_path}")
+    
     file_path = os.path.join(output_folder_2, f"realsense_color_{frame_count}.jpg")
     cv2.imwrite(file_path, frame)
     print(f"Frame {frame_count} captured and saved to: {file_path}")
