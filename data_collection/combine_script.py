@@ -117,7 +117,7 @@ while True:
     
     # Get frameset of color and depth
     frames = pipeline.wait_for_frames()
-    # frames.get_depth_frame() is a 640x360 depth image
+    depth_frame = frames.get_depth_frame() #is a 640x360 depth image
 
 
     # Align the depth frame to color frame
@@ -178,7 +178,7 @@ while True:
         break
     drone_center_x = (x_coordiantes[0]+x_coordiantes[1])/2
     drone_center_y = (y_coordiantes[0]+y_coordiantes[1])/2
-    depth = aligned_depth_frame[drone_center_x,drone_center_y]
+    depth = depth_frame[drone_center_x,drone_center_y]
     x = ((drone_center_x)/f)*depth
     y = ((drone_center_y)/f)*depth
     f = open("x_y_algorithm_data", "a")
