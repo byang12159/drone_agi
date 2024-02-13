@@ -175,7 +175,7 @@ while True:
         y_coordiantes.append(cY)
     f = 489.5384
     if len(x_coordiantes) < 2 or len(y_coordiantes) < 2:
-        break
+        continue
     drone_center_x = (x_coordiantes[0]+x_coordiantes[1])/2
     drone_center_y = (y_coordiantes[0]+y_coordiantes[1])/2
     depth = depth_frame[drone_center_x,drone_center_y]
