@@ -180,9 +180,9 @@ while True:
     x = ((drone_center_x)/f)*depth
     y = ((drone_center_y)/f)*depth
     f = open("x_y_algorithm_data", "a")
-    f.write(x)
-    f.write(y)
-    f.write(depth)
+    f.write(str(x))
+    f.write(str(y))
+    f.write(str(depth))
     f.write("\n")
     f.close()
 
