@@ -180,8 +180,8 @@ while True:
     x = ((drone_center_x)/f)*depth
     y = ((drone_center_y)/f)*depth
     f = open("x_y_algorithm_data", "a")
-    f.wite(x,y,depth)
-    f.wite("\n")
+    f.write(x,y,depth)
+    f.write("\n")
     f.close()
 
     frame_count += 1
