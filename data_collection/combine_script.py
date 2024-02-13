@@ -174,8 +174,8 @@ while True:
     f = 489.5384
     if len(x_coordiantes) < 2 or len(y_coordiantes) < 2:
         continue
-    drone_center_x = (x_coordiantes[0]+x_coordiantes[1])/2
-    drone_center_y = (y_coordiantes[0]+y_coordiantes[1])/2
+    drone_center_x = int((x_coordiantes[0]+x_coordiantes[1])/2)
+    drone_center_y = int((y_coordiantes[0]+y_coordiantes[1])/2)
     depth = depth_frame_image[drone_center_x,drone_center_y]
     x = ((drone_center_x)/f)*depth
     y = ((drone_center_y)/f)*depth
