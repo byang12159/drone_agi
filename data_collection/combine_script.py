@@ -2,12 +2,12 @@ import cv2
 import os
 import pyrealsense2 as rs
 import numpy as np
-
+from realsense_D435i import *
 
 
 # Open a video capture object for the USB camera (usually 0 or 1 depending on your setup)
 cap = cv2.VideoCapture(0)
-
+dc = DepthCamera()
 # Check if the camera is opened successfully
 if not cap.isOpened():
     print("Error: Could not open camera.")
@@ -117,8 +117,9 @@ while True:
     
     # Get frameset of color and depth
     frames = pipeline.wait_for_frames()
-    depth_frame = frames.get_depth_frame() #is a 640x360 depth image
+    #depth_frame = frames.get_depth_frame() #is a 640x360 depth image
 
+    ret, depth_frame, color_frame = dc.get_frame()
 
     # Align the depth frame to color frame
     aligned_frames = align.process(frames)
