@@ -98,7 +98,7 @@ f.close()
 while True:
     # Capture frame-by-frame
     ret, frame = cap.read()
-
+    frame = cv2.flip(frame, 0)
     # Check if the frame is read successfully
     if not ret:
         print("Error: Couldn't read frame.")
@@ -117,6 +117,7 @@ while True:
     # Get frameset of color and depth
     frames = pipeline.wait_for_frames()
     depth_frame = frames.get_depth_frame() #is a 640x360 depth image
+    depth_frame = cv2.flip(depth_frame, 0)
     depth_frame_image = np.asanyarray(depth_frame.get_data())
     # Align the depth frame to color frame
     aligned_frames = align.process(frames)
@@ -135,7 +136,8 @@ while True:
 
     depth_image = np.asanyarray(aligned_depth_frame.get_data())
     color_image = np.asanyarray(color_frame.get_data())
-
+    depth_image = cv2.flip(depth_image, 0)
+    color_image = cv2.flip(color_image, 0)
     # Remove background - Set pixels further than clipping_distance to grey
     # grey_color = 153
     # depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channels
@@ -172,17 +174,21 @@ while True:
         x_coordiantes.append(cX)
         y_coordiantes.append(cY)
     f = 489.5384
+    cx = 307.82908611
+    cy = 244.48380801
     if len(x_coordiantes) < 2 or len(y_coordiantes) < 2:
         continue
     drone_center_x = int((x_coordiantes[0]+x_coordiantes[1])/2)
     drone_center_y = int((y_coordiantes[0]+y_coordiantes[1])/2)
     depth = depth_frame_image[drone_center_x,drone_center_y]
-    x = ((drone_center_x)/f)*depth
-    y = ((drone_center_y)/f)*depth
+    dist = np.sqrt((cx-x_coordiantes[0])**2+(cy-y_coordiantes[0]**2))
+    horizontal_depth = np.sqrt(depth**2-dist**2)
+    x = ((drone_center_x)/f)*horizontal_depth
+    y = ((drone_center_y)/f)*horizontal_depth
     f = open("x_y_algorithm_data", "a")
     f.write(str(x))
     f.write(str(y))
-    f.write(str(depth))
+    f.write(str(horizontal_depth))
     f.write("\n")
     f.close()
 
