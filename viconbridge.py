@@ -33,22 +33,24 @@ def extract_mavlink(msg):
     data[-1] = now
 
     rounded = [round(x,2) for x in data[9:]]
-    print("ALL:",rounded )
+    # print("ALL:",data )
 
     return data
 
 def main():
     # create a mavlink serial instance
     master = mavutil.mavlink_connection('udpin:0.0.0.0:10085')
-
+    print("starting")
     while True:
         msg = master.recv_match(blocking=False)
         if not msg:
+            # print("watiting for message")
             continue
 
         if msg.get_type() == 'LOCAL_POSITION_NED_COV':
-
+            print("enter")
             data = extract_mavlink(msg)
+            print(data[1]+3.73)
 
             # TODO GET PICAM PICTURE
 
