@@ -102,6 +102,17 @@ print(rs.intrinsics())
 f = open("x_y_algorithm_data", "w")
 f.write("x   y   depth\n")
 f.close()
+<<<<<<< HEAD
+=======
+while True:
+    # Capture frame-by-frame
+    ret, frame = cap.read()
+    frame = cv2.flip(frame, 0)
+    # Check if the frame is read successfully
+    if not ret:
+        print("Error: Couldn't read frame.")
+        break
+>>>>>>> 566a390adbfccd35362b702536c5d4790ef1301c
 
 f = open("x_y_algorithm_data_vicon", "w")
 f.write("x   y   depth\n")
@@ -139,6 +150,99 @@ while True:
         now = time.time()
         data[-1] = now
     
+<<<<<<< HEAD
+=======
+    # Get frameset of color and depth
+    frames = pipeline.wait_for_frames()
+    depth_frame = frames.get_depth_frame() #is a 640x360 depth image
+    depth_frame = cv2.flip(depth_frame, 0)
+    depth_frame_image = np.asanyarray(depth_frame.get_data())
+    # Align the depth frame to color frame
+    aligned_frames = align.process(frames)
+
+    # Get aligned frames
+    aligned_depth_frame = aligned_frames.get_depth_frame() # aligned_depth_frame is a 640x480 depth image
+    color_frame = aligned_frames.get_color_frame()
+
+
+    color_intrin = color_frame.profile.as_video_stream_profile().intrinsics
+    print(color_intrin)
+
+    # Validate that both frames are valid
+    if not aligned_depth_frame or not color_frame:
+        continue
+
+    depth_image = np.asanyarray(aligned_depth_frame.get_data())
+    color_image = np.asanyarray(color_frame.get_data())
+    depth_image = cv2.flip(depth_image, 0)
+    color_image = cv2.flip(color_image, 0)
+    # Remove background - Set pixels further than clipping_distance to grey
+    # grey_color = 153
+    # depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channels
+    # bg_removed = np.where((depth_image_3d > clipping_distance) | (depth_image_3d <= 0), grey_color, color_image)
+
+    # Render images:
+    #   depth align to color on left
+    #   depth on right
+    depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
+    #images = np.hstack((bg_removed, depth_colormap))
+    images = np.hstack((color_image, depth_colormap))
+    #images = np.hstack((color_image, depth_image))
+
+    cv2.imwrite("realsense_color.jpg", color_image)
+    cv2.imwrite("realsense_depth.jpg", depth_colormap)
+
+    greenLower = (40, 50, 60)
+    greenUpper = (68, 255, 255)
+    img = color_image
+    blurred = cv2.GaussianBlur(img, (11, 11), 0)
+    hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, greenLower, greenUpper)
+    mask = cv2.erode(mask, None, iterations=2)
+    mask = cv2.dilate(mask, None, iterations=2)
+    x_coordiantes = []
+    y_coordiantes = []
+    ret,thresh = cv2.threshold(mask,127,255,0)
+    contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    for c in contours:
+        M = cv2.moments(c)
+
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+        x_coordiantes.append(cX)
+        y_coordiantes.append(cY)
+    f = 489.5384
+    cx = 307.82908611
+    cy = 244.48380801
+    if len(x_coordiantes) < 2 or len(y_coordiantes) < 2:
+        continue
+    drone_center_x = int((x_coordiantes[0]+x_coordiantes[1])/2)
+    drone_center_y = int((y_coordiantes[0]+y_coordiantes[1])/2)
+    depth = depth_frame_image[drone_center_x,drone_center_y]
+    dist = np.sqrt((cx-x_coordiantes[0])**2+(cy-y_coordiantes[0]**2))
+    horizontal_depth = np.sqrt(depth**2-dist**2)
+    x = ((drone_center_x)/f)*horizontal_depth
+    y = ((drone_center_y)/f)*horizontal_depth
+    f = open("x_y_algorithm_data", "a")
+    f.write(str(x))
+    f.write(str(y))
+    f.write(str(horizontal_depth))
+    f.write("\n")
+    f.close()
+
+    frame_count += 1
+    file_path = os.path.join(output_folder_1, f"captured_frame_{frame_count}.jpg")
+    cv2.imwrite(file_path, frame)
+    print(f"Frame {frame_count} captured and saved to: {file_path}")
+
+    file_path = os.path.join(output_folder_2, f"realsense_color_{frame_count}.jpg")
+    cv2.imwrite(file_path, frame)
+    print(f"Frame {frame_count} captured and saved to: {file_path}")
+
+    file_path = os.path.join(output_folder_3, f"realsense_depth_{frame_count}.jpg")
+    cv2.imwrite(file_path, frame)
+    print(f"Frame {frame_count} captured and saved to: {file_path}")
+>>>>>>> 566a390adbfccd35362b702536c5d4790ef1301c
 
         # Capture frame-by-frame
         ret, frame = cap.read()
