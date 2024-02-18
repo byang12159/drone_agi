@@ -8,32 +8,35 @@ import pickle
 
 def Calibrate():
     # Number of object points
-    num_intersections_in_x = 6
-    num_intersections_in_y = 9
+    num_intersections_in_x = 4
+    num_intersections_in_y = 6
     
     # Size of square in meters
-    square_size = 0.0225
+    square_size = 0.0375
     
     # Arrays to store 3D points and 2D image points
     obj_points = []
     img_points = []
     
     # Prepare expected object 3D object points (0,0,0), (1,0,0) ...
-    object_points = np.zeros((6*9,3), np.float32)
-    object_points[:,:2] = np.mgrid[0:6, 0:9].T.reshape(-1,2)
+    object_points = np.zeros((num_intersections_in_x *num_intersections_in_y,3), np.float32)
+    object_points[:,:2] = np.mgrid[0:num_intersections_in_x, 0:num_intersections_in_y].T.reshape(-1,2)
     object_points = object_points*square_size
     
-    fnames = glob.glob('./captured_frames_raw/captured_frame_'+'*.'+'jpg')
+    fnames = glob.glob('./captured_frames_raw_data/captured_frame_'+'*.'+'jpg')
     
     print(len(fnames) , "number of images found")
     for fname in fnames:
         img = cv2.imread(fname)
+        img= cv2.flip(img,-1)
+        # cv2.namedWindow("main", cv2.WINDOW_NORMAL)
+        # cv2.imshow("main", img)
+        # cv2.waitKey(0)
         img_size = (img.shape[1], img.shape[0])
-        gray_scale = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        gray_scale = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)     
 
         # Find chess board corners
         ret, corners = cv2.findChessboardCorners(gray_scale, (num_intersections_in_x, num_intersections_in_y), None)
-        
         if ret:
             obj_points.append(object_points)
             img_points.append(corners)
@@ -41,10 +44,10 @@ def Calibrate():
             # Draw the corners
             drawn_img = cv2.drawChessboardCorners(img, (7,7), corners, ret)
             # Uncomment the below code (43-47) if you want to visualize the detected corners
-            #drawn_img = cv2.resize(drawn_img, (500,500))
-            #cv2.namedWindow("main", cv2.WINDOW_NORMAL)
-            #cv2.imshow("main", drawn_img)
-            #cv2.waitKey(0)
+            drawn_img = cv2.resize(drawn_img, (500,500))
+            cv2.namedWindow("main", cv2.WINDOW_NORMAL)
+            cv2.imshow("main", drawn_img)
+            cv2.waitKey(0)
 
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(obj_points, img_points, img_size, None, None)
 

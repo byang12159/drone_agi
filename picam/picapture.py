@@ -1,6 +1,7 @@
 import cv2
 import os
 
+
 # Open a video capture object for the USB camera (usually 0 or 1 depending on your setup)
 cap = cv2.VideoCapture(0)
 

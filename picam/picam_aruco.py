@@ -39,8 +39,8 @@ def rotationMatrixToEulerAngles(R) :
     return np.array([x, y, z])
 
 
-# marker size mm
-def detect_aruco(cap=None, save=None, visualize=True, marker_size=100):
+# marker size mm marker_size=83
+def detect_aruco(camera_mtx, distortion_param,cap=None, save=None, visualize=True, marker_size=100):
     def cleanup_cap():
         pass
     if cap is None:
@@ -50,6 +50,7 @@ def detect_aruco(cap=None, save=None, visualize=True, marker_size=100):
         cleanup_cap()
 
     ret, frame = cap.read()
+    frame = cv2.flip(frame,-1)
     width = int(frame.shape[1] * scale)
     height = int(frame.shape[0] * scale)
     dim = (width, height)
@@ -225,16 +226,17 @@ if __name__ == "__main__":
 # Translation x:0.16 y:0.24 z:0.57
 
     
-    usb = False
+    usb = True
     if usb == True:
-        camera_mtx = np.array([[489.53842117,  0.,         307.82908611],
-                        [  0. ,        489.98143193, 244.48380801],
-                        [  0.   ,        0.         ,  1.        ]])
+
+        camera_mtx = np.array([[488.37405729 ,  0. ,        332.86930938],
+                    [  0.   ,      490.86269977 ,234.46234393],
+                    [  0.    ,       0.     ,      1.        ]])
 
         camera_mtx = camera_mtx * scale
         camera_mtx[2,2] = 1.
 
-        distortion_param = np.array([-0.44026799,  0.32228178,  0.00059873,  0.00154265, -0.18461811])
+        distortion_param = np.array([-0.4253985 ,  0.24863036 ,-0.00162259 ,-0.003012  , -0.09376853])
 
         cam = get_camera()
 
@@ -246,7 +248,7 @@ if __name__ == "__main__":
             print("TS is:   ",Ts)
     
             if len(Ts)>0:
-                print(f"Translation x:{round(Ts[0][0, 3],2)} y:{round(Ts[0][1, 3],2)} z:{round(Ts[0][2, 3],2)}")
+                print(f"Translation x:{round(-Ts[0][0, 3],2)} y:{round(Ts[0][1, 3],2)} z:{round(Ts[0][2, 3],2)}")
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'): break
 
