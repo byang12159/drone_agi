@@ -9,7 +9,7 @@ from utils import transformations
 from picam.transformation_properties_drone import get_T_DC
 import cv2
 
-marker_GT_state = [0.8422297973632813, -2.490376953125, 0.4268939514160156, 0.0011990131139755248, 0.0023979015350341797, -0.0013976448774337769, 0.022845638275146483, 0.05173447799682617, -0.03210985946655273, 0.0230865478515625, -0.0040740966796875, -0.01971435546875, 0.02188873291015625, 0.01209259033203125, 0.9994964599609375, 1708277391.1825695]
+marker_GT_state = [0.7285822143554688, -2.704765380859375, 0.42636590576171873, -0.000485033392906189, 0.000907423734664917, -0.0010173320770263672, -0.019521604537963866, 0.02381357192993164, -0.02061640739440918, 3.1396408081054688, -0.00604248046875, -0.00347137451171875, -0.00452423095703125, -0.00130462646484375, 0.9999847412109375, 1708447264.7381523]
 
 def extract_mavlink(msg):
     # Data = [x y z vx vy vz ax ay az + ]
@@ -38,7 +38,7 @@ def extract_mavlink(msg):
     now = time.time()
     data[-1] = now
 
-    rounded = [round(x,2) for x in data[9:]]
+    # rounded = [round(x,2) for x in data[9:]]
     # print("ALL:",data )
 
     return data
@@ -82,7 +82,7 @@ def main():
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'): break
 
-            datapackage = [marker_GT_state, current_state_vicon, (Ts,ids)]
+            datapackage = [marker_GT_state, snap_state, (Ts,ids)]
             calibration_data.append(datapackage)
             # pose_C = Ts[ids.index(targetid)]
             # q = snap_state[11:15] # x, y, z, w
@@ -99,7 +99,7 @@ def main():
     cv2.destroyAllWindows()
     release_camera(cam)
 
-    pickle.dump(calibration_data, open("calibration_data_test.p", "wb"))
+    pickle.dump(calibration_data, open("calibration_data_test2.p", "wb"))
 
         
 

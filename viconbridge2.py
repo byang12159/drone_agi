@@ -32,8 +32,8 @@ def extract_mavlink(msg):
     now = time.time()
     data[-1] = now
 
-    rounded = [round(x,2) for x in data[9:]]
-    print("ALL:",data[0],data[1],data[2] )
+    # rounded = [round(x,2) for x in data[9:]]
+    # print("ALL:",data[0],data[1],data[2] )
 
     return data
 
@@ -51,14 +51,15 @@ def main():
         if msg.get_type() == 'LOCAL_POSITION_NED_COV':
 
             data = extract_mavlink(msg)
-            f = open("x_y_z_data_vicon", "a")
-            f.write(str(data[0]))
-            f.write(" ")
-            f.write(str(data[1]))
-            f.write(" ")
-            f.write(str(data[2]))
-            f.write("\n")
-            f.close()
+            print(data)
+            # f = open("x_y_z_data_vicon", "a")
+            # f.write(str(data[0]))
+            # f.write(" ")
+            # f.write(str(data[1]))
+            # f.write(" ")
+            # f.write(str(data[2]))
+            # f.write("\n")
+            # f.close()
             # TODO GET PICAM PICTURE
 
             # TODO GET D435 PICTURE
