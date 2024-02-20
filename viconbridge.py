@@ -33,7 +33,7 @@ def extract_mavlink(msg):
     data[-1] = now
 
     rounded = [round(x,2) for x in data[9:]]
-    # print("ALL:",data )
+    print("ALL:",data )
 
     return data
 
@@ -48,9 +48,9 @@ def main():
             continue
 
         if msg.get_type() == 'LOCAL_POSITION_NED_COV':
-            print("enter")
+            
             data = extract_mavlink(msg)
-            print(data[1]+3.73)
+            
 
             # TODO GET PICAM PICTURE
 

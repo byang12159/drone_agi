@@ -44,7 +44,7 @@ def rotationMatrixToEulerAngles(R) :
 
 
 # marker size mm
-def detect_aruco(cap=None, save=None, visualize=True, marker_size=100):
+def detect_aruco(cap=None, save=None, visualize=True, marker_size=83):
     def cleanup_cap():
         pass
     if cap is None:
@@ -73,6 +73,7 @@ def detect_aruco(cap=None, save=None, visualize=True, marker_size=100):
     frame = aruco.drawDetectedMarkers( frame, markerCorners, markerIds )
     Ts = []
     ids = []
+    global frame_count
     if markerIds is not None:
         rvecs, tvecs, objPoints = cv2.aruco.estimatePoseSingleMarkers(markerCorners, markerLength=marker_size, cameraMatrix=camera_mtx, distCoeffs=distortion_param)
         # rvecs, tvecs, objpoints = aruco.estimatePoseSingleMarkers(markerCorners, marker_size, , )
@@ -98,6 +99,14 @@ def detect_aruco(cap=None, save=None, visualize=True, marker_size=100):
 
     if visualize:
         cv2.imshow("camera view", frame)
+
+    if len(Ts)>0:
+        frame_count += 1
+        file_path = os.path.join(output_folder_1, f"captured_frame_{frame_count}.jpg")
+        cv2.imwrite(file_path, frame)
+        print(f"Frame {frame_count} captured and saved to: {file_path}")
+        
+
 
     cleanup()
 
@@ -271,34 +280,87 @@ if __name__ == "__main__":
     f.write("x   y   depth\n")
     f.close()
 
+    f = open("Ts", "w")
+    f.close()
+
+    f = open("ids", "w")
+    f.close()
+
     f = open("x_y_algorithm_data_vicon", "w")
     f.write("x   y   depth\n")
     f.close()
     master = mavutil.mavlink_connection('udpin:0.0.0.0:10085')
-    usb = False
+    usb = True
     if usb == True:
-        camera_mtx = np.array([[489.53842117,  0.,         307.82908611],
-                        [  0. ,        489.98143193, 244.48380801],
-                        [  0.   ,        0.         ,  1.        ]])
+        camera_mtx = np.array([[488.37405729 ,  0. ,        332.86930938],
+                                [  0.   ,      490.86269977 ,234.46234393],
+                                [  0.    ,       0.     ,      1.        ]])
 
         camera_mtx = camera_mtx * scale
         camera_mtx[2,2] = 1.
 
-        distortion_param = np.array([-0.44026799,  0.32228178,  0.00059873,  0.00154265, -0.18461811])
+        distortion_param = np.array([-0.4253985 ,  0.24863036 ,-0.00162259 ,-0.003012  , -0.09376853])
 
         cam = get_camera()
 
         while True:
-            s = time.time()
-            Ts, ids = detect_aruco(cam, visualize=True)
-            print('run time %.3fs'%(time.time() - s))
-            print("IDs:   ",ids)
-            print("TS is:   ",Ts)
-    
-            if len(Ts)>0:
-                print(f"Translation x:{round(Ts[0][0, 3],2)} y:{round(Ts[0][1, 3],2)} z:{round(Ts[0][2, 3],2)}")
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'): break
+                msg = master.recv_match(blocking=False)
+                if not msg:
+                    continue
+                if msg.get_type() == 'LOCAL_POSITION_NED_COV':
+                    data= [0, ] * (9 + 2 + 4 + 1)
+
+                    data[0] = msg.x / 1000.
+                    data[1] = msg.y / 1000.
+                    data[2] = msg.z / 1000.
+                    data[3] = msg.vx / 1000.
+                    data[4] = msg.vy / 1000.
+                    data[5] = msg.vz / 1000.
+                    data[6] = msg.ax / 1000.
+                    data[7] = msg.ay / 1000.
+                    data[8] = msg.az / 1000.
+
+                    # use msg.covariance to store the yaw and yaw_rate, and q
+                    offset = 100.
+                    data[9] = msg.covariance[0] - offset
+                    data[10] = msg.covariance[1] - offset
+
+                    data[11] = msg.covariance[2] - offset
+                    data[12] = msg.covariance[3] - offset
+                    data[13] = msg.covariance[4] - offset
+                    data[14] = msg.covariance[5] - offset
+
+                    now = time.time()
+                    data[-1] = now
+                    s = time.time()
+                    Ts, ids = detect_aruco(cam, visualize=True)
+                    print('run time %.3fs'%(time.time() - s))
+                    print("IDs:   ",ids)
+                    print("TS is:   ",Ts)
+
+                    if len(Ts)>0:
+                        print(f"Translation x:{round(Ts[0][0, 3],2)} y:{round(Ts[0][1, 3],2)} z:{round(Ts[0][2, 3],2)}")
+                        f = open("x_y_algorithm_data", "a")
+                        #a = round(Ts[0][0, 3],2)
+                        calculated_coordinates = (round(Ts[0][0, 3],2),round(Ts[0][1, 3],2),round(Ts[0][2, 3],2))
+                        f.write(str(calculated_coordinates))
+                        f.write("\n")
+                        f.close()
+                        f = open("x_y_algorithm_data_vicon", "a")
+                        vicon_coordinates = (data[0],data[1],data[2])
+                        f.write(str(vicon_coordinates))
+                        f.write("\n")
+                        f.close()
+                        f = open("Ts", "a")
+                        f.write(str(Ts))
+                        f.write("\n")
+                        f.close()
+                        f = open("ids", "a")
+                        f.write(str(ids))
+                        f.write("\n")
+                        f.close()
+                    key = cv2.waitKey(1) & 0xFF
+                    if key == ord('q'): break
 
         cv2.destroyAllWindows()
         release_camera(cam)
