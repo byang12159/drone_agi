@@ -8,7 +8,7 @@ xaxis = np.array([1, 0, 0])
 yaxis = np.array([0, 1, 0])
 zaxis = np.array([0, 0, 1])
 
-with open("calibration_data_test2.p",'rb') as handle:
+with open("calibration_data_test3.p",'rb') as handle:
     data = pickle.load(handle)
 
 marker_GT = data[0][0]
@@ -93,7 +93,7 @@ for i,dat in enumerate(data):
 
 ######################################################################################################
 
-print(idx_spottedq)
+print(idx_spotted)
 fig = plt.figure()
 ax = fig.add_subplot(111,projection='3d')
 for i in idx_spotted:

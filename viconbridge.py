@@ -79,13 +79,13 @@ def main():
             print("1) Currentstate",snap_state)
             if len(Ts)>0:
                 print(f"Translation x:{round(-Ts[0][0, 3],2)} y:{round(Ts[0][1, 3],2)} z:{round(Ts[0][2, 3],2)}")
-                
+                datapackage = [marker_GT_state, snap_state, (Ts,ids)]
+                calibration_data.append(datapackage)
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'): break
-            
+
             print("2) Current aruco Ts", Ts)
-            datapackage = [marker_GT_state, snap_state, (Ts,ids)]
-            calibration_data.append(datapackage)
+            
             # pose_C = Ts[ids.index(targetid)]
             # q = snap_state[11:15] # x, y, z, w
             # T_WD = transformations.quaternion_matrix(q)
@@ -101,7 +101,7 @@ def main():
     cv2.destroyAllWindows()
     release_camera(cam)
 
-    pickle.dump(calibration_data, open("calibration_data_test2.p", "wb"))
+    pickle.dump(calibration_data, open("calibration_data_test3.p", "wb"))
 
         
 
