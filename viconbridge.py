@@ -76,12 +76,14 @@ def main():
 
             current_state_vicon = extract_mavlink(msg)
             snap_state = current_state_vicon.copy()
-            print("Currentstate",current_state_vicon)
+            print("1) Currentstate",snap_state)
             if len(Ts)>0:
                 print(f"Translation x:{round(-Ts[0][0, 3],2)} y:{round(Ts[0][1, 3],2)} z:{round(Ts[0][2, 3],2)}")
+                
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'): break
-
+            
+            print("2) Current aruco Ts", Ts)
             datapackage = [marker_GT_state, snap_state, (Ts,ids)]
             calibration_data.append(datapackage)
             # pose_C = Ts[ids.index(targetid)]
