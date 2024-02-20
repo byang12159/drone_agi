@@ -207,72 +207,72 @@ plt.show()
 
 ##########################################################################################################################################
 
-fig = plt.figure()
-ax = fig.add_subplot(111,projection='3d')
-ax.plot(0,0,0, 'x',color='red')
-translation = Ts[:3,3]
-# #forward
-# aruco_tail_x = Ts[:3,:3].dot(xaxis*scale) + translation
-# aruco_tail_y = Ts[:3,:3].dot(yaxis*scale) + translation
-# aruco_tail_z = Ts[:3,:3].dot(zaxis*scale) + translation
+# fig = plt.figure()
+# ax = fig.add_subplot(111,projection='3d')
+# ax.plot(0,0,0, 'x',color='red')
+# translation = Ts[:3,3]
+# # #forward
+# # aruco_tail_x = Ts[:3,:3].dot(xaxis*scale) + translation
+# # aruco_tail_y = Ts[:3,:3].dot(yaxis*scale) + translation
+# # aruco_tail_z = Ts[:3,:3].dot(zaxis*scale) + translation
 
 
-#backward
-rotation = np.linalg.inv(Ts[:3,:3])
-scale = 1
-aruco_head_x = rotation.dot(np.array([0,0,0])*scale - translation)
-aruco_head_y = rotation.dot(np.array([0,0,0])*scale - translation)
-aruco_head_z = rotation.dot(np.array([0,0,0])*scale - translation)
-aruco_tail_x = rotation.dot(xaxis*scale - translation)
-aruco_tail_y = rotation.dot(yaxis*scale - translation)
-aruco_tail_z = rotation.dot(zaxis*scale - translation)
+# #backward
+# rotation = np.linalg.inv(Ts[:3,:3])
+# scale = 1
+# aruco_head_x = rotation.dot(np.array([0,0,0])*scale - translation)
+# aruco_head_y = rotation.dot(np.array([0,0,0])*scale - translation)
+# aruco_head_z = rotation.dot(np.array([0,0,0])*scale - translation)
+# aruco_tail_x = rotation.dot(xaxis*scale - translation)
+# aruco_tail_y = rotation.dot(yaxis*scale - translation)
+# aruco_tail_z = rotation.dot(zaxis*scale - translation)
 
 
-#    ax.plot(translation[0],translation[1],translation[2], 'x',color='blue',label=f'Ts #{i}')
+# #    ax.plot(translation[0],translation[1],translation[2], 'x',color='blue',label=f'Ts #{i}')
 
-marker_x = T_WM[:3,:3].dot(x_axis) + T_WM[:3,3]
-marker_y = T_WM[:3,:3].dot(y_axis) + T_WM[:3,3]
-marker_z = T_WM[:3,:3].dot(z_axis) + T_WM[:3,3]
-########### PLOT for Aruco Marker Center ###########
-ax.plot(marker_GT[0],marker_GT[1],marker_GT[2], 'x', color='r')
-axes_size = 1
-# marker_GT = np.array([0,0,0])
-# marker_x = np.array([1,0,0])
-# marker_y = np.array([0,1,0])
-# marker_z = np.array([0,0,1])
-ax.plot([marker_GT[0], marker_x[0]], [marker_GT[1], marker_x[1]], [marker_GT[2],marker_x[2]], color='red', linewidth=2)
-ax.plot([marker_GT[0], marker_y[0]], [marker_GT[1], marker_y[1]], [marker_GT[2],marker_y[2]], color='green', linewidth=2)
-ax.plot([marker_GT[0], marker_z[0]], [marker_GT[1], marker_z[1]], [marker_GT[2],marker_z[2]], color='blue', linewidth=2)
+# marker_x = T_WM[:3,:3].dot(x_axis) + T_WM[:3,3]
+# marker_y = T_WM[:3,:3].dot(y_axis) + T_WM[:3,3]
+# marker_z = T_WM[:3,:3].dot(z_axis) + T_WM[:3,3]
+# ########### PLOT for Aruco Marker Center ###########
+# ax.plot(marker_GT[0],marker_GT[1],marker_GT[2], 'x', color='r')
+# axes_size = 1
+# # marker_GT = np.array([0,0,0])
+# # marker_x = np.array([1,0,0])
+# # marker_y = np.array([0,1,0])
+# # marker_z = np.array([0,0,1])
+# ax.plot([marker_GT[0], marker_x[0]], [marker_GT[1], marker_x[1]], [marker_GT[2],marker_x[2]], color='red', linewidth=2)
+# ax.plot([marker_GT[0], marker_y[0]], [marker_GT[1], marker_y[1]], [marker_GT[2],marker_y[2]], color='green', linewidth=2)
+# ax.plot([marker_GT[0], marker_z[0]], [marker_GT[1], marker_z[1]], [marker_GT[2],marker_z[2]], color='blue', linewidth=2)
 
-# ax.plot(aruco_head_x[0],aruco_head_x[1],aruco_head_x[2], 'x',color = 'blue' )
+# # ax.plot(aruco_head_x[0],aruco_head_x[1],aruco_head_x[2], 'x',color = 'blue' )
 
-(Ts_inv@T_WM).dot()
-ax.plot([aruco_head_x[0],aruco_tail_x[0]],[aruco_head_x[1],aruco_tail_x[1]],[aruco_head_x[2],aruco_tail_x[2]],color='red')
-ax.plot([aruco_head_y[0],aruco_tail_y[0]],[aruco_head_y[1],aruco_tail_y[1]],[aruco_head_y[2],aruco_tail_y[2]],color='green')
-ax.plot([aruco_head_z[0],aruco_tail_z[0]],[aruco_head_z[1],aruco_tail_z[1]],[aruco_head_z[2],aruco_tail_z[2]],color='blue')
+# (Ts_inv@T_WM).dot()
+# ax.plot([aruco_head_x[0],aruco_tail_x[0]],[aruco_head_x[1],aruco_tail_x[1]],[aruco_head_x[2],aruco_tail_x[2]],color='red')
+# ax.plot([aruco_head_y[0],aruco_tail_y[0]],[aruco_head_y[1],aruco_tail_y[1]],[aruco_head_y[2],aruco_tail_y[2]],color='green')
+# ax.plot([aruco_head_z[0],aruco_tail_z[0]],[aruco_head_z[1],aruco_tail_z[1]],[aruco_head_z[2],aruco_tail_z[2]],color='blue')
 
-########### PLOT for Drone Poses ###########
-drone_rotation = transformations.quaternion_matrix(snapstate[11:15])
-drone_translation = snapstate[:3]
-drone_axes_scale = 1
-drone_axes_tip_x = drone_translation + drone_rotation[:3,:3].dot(x_axis*drone_axes_scale)
-drone_axes_tip_y = drone_translation + drone_rotation[:3,:3].dot(y_axis*drone_axes_scale)
-drone_axes_tip_z = drone_translation + drone_rotation[:3,:3].dot(z_axis*drone_axes_scale)
-ax.plot(drone_translation[0],drone_translation[1],drone_translation[2],'x',color='blue')
+# ########### PLOT for Drone Poses ###########
+# drone_rotation = transformations.quaternion_matrix(snapstate[11:15])
+# drone_translation = snapstate[:3]
+# drone_axes_scale = 1
+# drone_axes_tip_x = drone_translation + drone_rotation[:3,:3].dot(x_axis*drone_axes_scale)
+# drone_axes_tip_y = drone_translation + drone_rotation[:3,:3].dot(y_axis*drone_axes_scale)
+# drone_axes_tip_z = drone_translation + drone_rotation[:3,:3].dot(z_axis*drone_axes_scale)
+# ax.plot(drone_translation[0],drone_translation[1],drone_translation[2],'x',color='blue')
 
-print("drone pos estimate",drone_translation[0]-marker_GT[0],drone_translation[1]-marker_GT[1],drone_translation[2]-marker_GT[2])
-ax.plot([drone_translation[0], drone_axes_tip_x[0]], [drone_translation[1], drone_axes_tip_x[1]], [drone_translation[2],drone_axes_tip_x[2]], color='red',   linewidth=0.5)
-ax.plot([drone_translation[0], drone_axes_tip_y[0]], [drone_translation[1], drone_axes_tip_y[1]], [drone_translation[2],drone_axes_tip_y[2]], color='green', linewidth=0.5)
-ax.plot([drone_translation[0], drone_axes_tip_z[0]], [drone_translation[1], drone_axes_tip_z[1]], [drone_translation[2],drone_axes_tip_z[2]], color='blue',  linewidth=0.5)
+# print("drone pos estimate",drone_translation[0]-marker_GT[0],drone_translation[1]-marker_GT[1],drone_translation[2]-marker_GT[2])
+# ax.plot([drone_translation[0], drone_axes_tip_x[0]], [drone_translation[1], drone_axes_tip_x[1]], [drone_translation[2],drone_axes_tip_x[2]], color='red',   linewidth=0.5)
+# ax.plot([drone_translation[0], drone_axes_tip_y[0]], [drone_translation[1], drone_axes_tip_y[1]], [drone_translation[2],drone_axes_tip_y[2]], color='green', linewidth=0.5)
+# ax.plot([drone_translation[0], drone_axes_tip_z[0]], [drone_translation[1], drone_axes_tip_z[1]], [drone_translation[2],drone_axes_tip_z[2]], color='blue',  linewidth=0.5)
 
 
-ax.set_xlabel('x')
-ax.set_ylabel('y')
-ax.set_zlabel('z')
-plt.legend()
-plt.axis('equal')
-print("marker estimate at position ",aruco_head_x[0],aruco_head_x[1],aruco_head_x[2])
-plt.show()
+# ax.set_xlabel('x')
+# ax.set_ylabel('y')
+# ax.set_zlabel('z')
+# plt.legend()
+# plt.axis('equal')
+# print("marker estimate at position ",aruco_head_x[0],aruco_head_x[1],aruco_head_x[2])
+# plt.show()
 
 
 # ##########################################################################################################################################
