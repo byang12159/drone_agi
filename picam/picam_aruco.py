@@ -239,10 +239,10 @@ if __name__ == "__main__":
         distortion_param = np.array([-0.4253985 ,  0.24863036 ,-0.00162259 ,-0.003012  , -0.09376853])
 
         cam = get_camera()
-
+        time.sleep(2)
         while True:
             s = time.time()
-            Ts, ids = detect_aruco(cam, visualize=True)
+            Ts, ids = detect_aruco(camera_mtx, distortion_param,cam, visualize=True)
             print('run time %.3fs'%(time.time() - s))
             print("IDs:   ",ids)
             print("TS is:   ",Ts)

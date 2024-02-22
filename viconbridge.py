@@ -33,16 +33,14 @@ def extract_mavlink(msg):
     data[-1] = now
 
     # rounded = [round(x,2) for x in data[9:]]
-    print("position xyz:",round(data[0],2),round(data[1],2),round(data[2],2) )
-
+    # print("position xyz:",round(data[0],2),round(data[1],2),round(data[2],2) )
+    print("data",data)
     return data
 
 def main():
     # create a mavlink serial instance
     master = mavutil.mavlink_connection('udpin:0.0.0.0:10085')
-    f = open("x_y_z_data_vicon", "w")
-    f.write("x   y   z\n")
-    f.close()
+
     while True:
         msg = master.recv_match(blocking=False)
         if not msg:

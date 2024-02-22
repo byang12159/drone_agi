@@ -96,12 +96,12 @@ def main():
 
             # print("Target",target)        
         elif msg.get_type() == 'ATT_POS_MOCAP':
-            pass
+            pass    
 
     cv2.destroyAllWindows()
     release_camera(cam)
 
-    pickle.dump(calibration_data, open("calibration_data_test4.p", "wb"))
+    pickle.dump(calibration_data, open("calibration_data_test5.p", "wb"))
 
         
 
