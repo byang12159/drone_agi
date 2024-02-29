@@ -3,7 +3,7 @@ import cv2
 import cv2.aruco as aruco
 import math
 import time
-import pyrealsense2 as rs
+# import pyrealsense2 as rs
 # from eulerconvert import rotationMatrixToEulerAngles
 
 scale = 1.0
@@ -58,14 +58,14 @@ def detect_aruco(camera_mtx, distortion_param,cap=None, save=None, visualize=Fal
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
-    # parameters = aruco.DetectorParameters_create()
-    # markerCorners, markerIds, rejectedCandidates= aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
+    aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
+    parameters = aruco.DetectorParameters_create()
+    markerCorners, markerIds, rejectedCandidates= aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
     
-    aruco_dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
-    parameters =  cv2.aruco.DetectorParameters()
-    detector = cv2.aruco.ArucoDetector(aruco_dictionary, parameters)
-    markerCorners, markerIds, rejectedCandidates= detector.detectMarkers(gray)
+    # aruco_dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
+    # parameters =  cv2.aruco.DetectorParameters()
+    # detector = cv2.aruco.ArucoDetector(aruco_dictionary, parameters)
+    # markerCorners, markerIds, rejectedCandidates= detector.detectMarkers(gray)
    
     frame = aruco.drawDetectedMarkers( frame, markerCorners, markerIds )
     Ts = []

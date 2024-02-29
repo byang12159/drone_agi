@@ -9,8 +9,12 @@ from picam.picam_aruco import get_camera,detect_aruco,release_camera
 from utils import transformations
 from picam.transformation_properties_drone import get_T_DC
 import cv2
+from DroneInterface import Drone
 
-marker_GT_state = [-0.29353912353515627, -0.07437275695800781, 0.4261025390625, 0.0005176302790641785, 0.0004048292338848114, -1.3104693964123727e-05, 0.012791335105895996, 0.015273360252380372, -0.0025080912113189698, 3.0648727416992188, -0.00089263916015625, -0.01818084716796875, -0.0217437744140625, -0.03874969482421875, 0.9988479614257812, 1709167569.5936272]
+marker_GT_state = [-0.29408993530273436, -0.07971382904052735, 0.4234147644042969, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.048583984375, 0.0, -0.0160369873046875, -0.0204010009765625, -0.0467987060546875, 0.998565673828125, 1709219631.4415877]
+
+drone = Drone()
+current_state = drone.state
 
 #vicon coordinate: up = +z, towards computer is +x, facing arena, to right is +y
 
@@ -66,64 +70,67 @@ def main():
     master = mavutil.mavlink_connection('udpin:0.0.0.0:10085')
     print("starting")
     count = 0 
+    aruco_detection=0
+
     while True:
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'): break
+        Flag_vicon = False
+        flag_detection = False
         msg = master.recv_match(blocking=False)
 
         Ts, ids, frame = detect_aruco(camera_mtx,distortion_param,cam, visualize=True)
-        print("IDs:   ",ids)
 
         if not msg:
             print("watiting for message")
+            flag_vicon = True
             continue
 
         if msg.get_type() == 'LOCAL_POSITION_NED_COV':
 
             current_state_vicon = extract_mavlink(msg)
-            snap_state = current_state_vicon.copy()
-            print("1) Currentstate",snap_state)
-            if len(Ts)>0:
-                print(f"Translation x:{round(-Ts[0][0, 3],2)} y:{round(Ts[0][1, 3],2)} z:{round(Ts[0][2, 3],2)}")
-                datapackage = [count,marker_GT_state, snap_state, (Ts,ids)]
-                print("datapck",datapackage)
-                # cv2.imwrite(f'img{count}.png',frame)
-                calibration_data.append(datapackage)
-                drone_state.append(snap_state)
-                count +=1
-                # update_plot(data)
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'): break
+            print("Curr Vicon state",round(current_state_vicon[0],2),round(current_state_vicon[1],2),round(current_state_vicon[2],2))
+            # print("Curr Vicon state",current_state_vicon)
+            calibration_data.append([count,marker_GT_state, current_state_vicon])
 
-
-            print("2) Current aruco Ts", Ts)
+            # print("2) Current aruco Ts", Ts)
                   
         elif msg.get_type() == 'ATT_POS_MOCAP':
             pass    
 
+        if len(Ts)>0:
+            print("IDs:   ",ids)
+            print(f"Translation x:{round(-Ts[0][0, 3],2)} y:{round(Ts[0][1, 3],2)} z:{round(Ts[0][2, 3],2)}")
+            # cv2.imwrite(f'img{count}.png',frame)
+            aruco_detection = (Ts,ids)
+
+        # if flag_vicon and flag_detection:
+        #     calibration_data.append([count,marker_GT_state, current_state_vicon, aruco_detection])
+
+        #     count +=1
+        #     print("appended history")
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'): break
     
     cv2.destroyAllWindows()
     release_camera(cam)
 
-    # with open('calibrationtest33.pkl', 'wb') as handle:
-    #     pickle.dump(calibration_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    # pickle.dump(calibration_data, open("calibration_data_test32.p", "wb"))
+    with open('calibrationtest40.pkl', 'wb') as handle:
+        pickle.dump(calibration_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print("Finished dumping pickle")
 
-    print("Finished dumping pickle")
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111,projection='3d')
+    # ax.plot(0,0,0, 'x',color='red',label="World Center")
+    # ax.plot(marker_GT_state[0],marker_GT_state[1],marker_GT_state[2],'x',color='green',label='marker location')
+    # for i in range(len(drone_state)):
+    #     ax.plot(drone_state[i][0],drone_state[i][1],drone_state[i][2], 'x',color='red')
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111,projection='3d')
-    ax.plot(0,0,0, 'x',color='red',label="World Center")
-    ax.plot(marker_GT_state[0],marker_GT_state[1],marker_GT_state[2],'x',color='green',label='marker location')
-    for i in range(len(drone_state)):
-        ax.plot(drone_state[i][0],drone_state[i][1],drone_state[i][2], 'x',color='red')
-
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_zlabel('z')
-    plt.legend()
-    plt.axis('equal')
-    plt.show()
+    # ax.set_xlabel('x')
+    # ax.set_ylabel('y')
+    # ax.set_zlabel('z')
+    # plt.legend()
+    # plt.axis('equal')
+    # plt.show()
 if __name__ == '__main__':
     main()
 
@@ -131,4 +138,4 @@ if __name__ == '__main__':
     # with open('datalog_Vicon.pkl','wb') as file:
     #     pickle.dump(datastorage,file)
     
-    print("finished vicon bridge log")
+    print("finished script")
