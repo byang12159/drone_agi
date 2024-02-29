@@ -40,7 +40,7 @@ def extract_mavlink(msg):
 def main():
     # create a mavlink serial instance
     master = mavutil.mavlink_connection('udpin:0.0.0.0:10085')
-
+    calibration_data =[]
     while True:
         msg = master.recv_match(blocking=False)
         if not msg:
@@ -49,6 +49,7 @@ def main():
         if msg.get_type() == 'LOCAL_POSITION_NED_COV':
 
             data = extract_mavlink(msg)
+            calibration_data.append(data)
             # print(data)
             # f = open("x_y_z_data_vicon", "a")
             # f.write(str(data[0]))
@@ -64,6 +65,7 @@ def main():
 
         elif msg.get_type() == 'ATT_POS_MOCAP':
             pass
+    
 
 if __name__ == '__main__':
     main()

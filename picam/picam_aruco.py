@@ -40,16 +40,16 @@ def rotationMatrixToEulerAngles(R) :
 
 
 # marker size mm marker_size=83
-def detect_aruco(camera_mtx, distortion_param,cap=None, save=None, visualize=True, marker_size=100):
-    def cleanup_cap():
-        pass
+def detect_aruco(camera_mtx, distortion_param,cap=None, save=None, visualize=False, marker_size=100):
+
     if cap is None:
         cap = get_camera()
-        cleanup_cap = lambda: cap.release()
-    def cleanup():
-        cleanup_cap()
+        time.sleep(2)
+        print("capstatus",cap)
+
 
     ret, frame = cap.read()
+ 
     frame = cv2.flip(frame,-1)
     width = int(frame.shape[1] * scale)
     height = int(frame.shape[0] * scale)
@@ -96,11 +96,11 @@ def detect_aruco(camera_mtx, distortion_param,cap=None, save=None, visualize=Tru
     if visualize:
         cv2.imshow("camera view", frame)
 
-    cleanup()
+
 
     # Multiple ids in 1D list
     # Mutiple Ts, select first marker 2d array by Ts[0]
-    return Ts, ids
+    return Ts, ids, frame
 
 def detect_aruco_realsense(pipeline=None, align = None, save=None, visualize=True, marker_size=100):
 
@@ -179,6 +179,7 @@ def get_camera():
     cap.set(4, img_height)
     cap.set(5, frame_rate)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    time.sleep(2)
     return cap
 
 def get_camera_realsense():
