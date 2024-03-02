@@ -17,8 +17,6 @@ def distance(x, y):
     return np.sqrt((e ** 2).sum())
 
 
-
-
 class Drone:
     def __init__(self):
         # subscribers
