@@ -48,7 +48,7 @@ def main():
             data.data[-1] = now
             pub.publish(data)
 
-            print("data")
+            print("data",data.data)
         elif msg.get_type() == 'ATT_POS_MOCAP':
             pass
 
