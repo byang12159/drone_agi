@@ -12,7 +12,7 @@ from picam.transformation_properties_drone import get_T_DC
 import argparse
 
 parser = argparse.ArgumentParser(description="")
-parser.add_argument('--filename', type=str, default="datacollect3.pkl", help='pickle filename to import data')
+parser.add_argument('--filename', type=str, default="datacollect1.pkl", help='pickle filename to import data')
 parser.add_argument('--outlier', type=float, default=1.0, help='cutoff for filtering before loss computation')
 parser.add_argument('--targetID', type=int, default=0, help='aruco marker ID to detect')
 
@@ -80,10 +80,11 @@ distance_all = []
 
 #### PLOT IN WORLD COORDINATE ####
 for j in range(len(pose_C)):
+
     fig = plt.figure()
     ax = fig.add_subplot(111,projection='3d')
-    #ax.plot(0,0,0, 'x',color='red',label="world center")
-    #ax.plot(marker_GT[0],marker_GT[1],marker_GT[2],'x',color='green',label='marker location')
+    ax.plot(0,0,0, 'x',color='red',label="world center")
+    ax.plot(marker_GT[0],marker_GT[1],marker_GT[2],'x',color='green',label='marker location')
 
     T_WD_unit = T_WD[j]
     pose_C_unit = pose_C[j]
@@ -106,10 +107,13 @@ for j in range(len(pose_C)):
     ax.plot([marker_center[0],marker_tail_y[0]],[marker_center[1],marker_tail_y[1]],[marker_center[2],marker_tail_y[2]],color='green')
     ax.plot([marker_center[0],marker_tail_z[0]],[marker_center[1],marker_tail_z[1]],[marker_center[2],marker_tail_z[2]],color='blue')
 
-    # R2 = np.array([[0,-1,0,0],
-    #             [1,0,0,0],
-    #             [0,0,1,0],
-    #             [0,0,0,1]])
+    def rotx(angle):
+        return np.array([[1,0,0,0],
+                         [0,np.cos(angle),-np.sin(angle),0],
+                         [0,np.sin(angle),np.cos(angle),0],
+                        [0,0,0,1]])
+    
+    RXneg90 = rotx(-np.pi/2)
 
     # R1 = np.array([[1,0,0,0],
     #             [0,-1,0,0],
@@ -134,20 +138,32 @@ for j in range(len(pose_C)):
     drone_tail_y = T_WD_unit@yaxis_h
     drone_tail_z = T_WD_unit@zaxis_h
 
-    #ax.plot(T_WD_unit[0][3],T_WD_unit[1][3],T_WD_unit[2][3],'x',color='purple',label=f'drone{j} location')
+    ax.plot(drone_center[0],drone_center[1],drone_center[2],'x',color='purple',label=f'drone{j} location')
     ax.plot([drone_center[0],drone_tail_x[0]],[drone_center[1],drone_tail_x[1]],[drone_center[2],drone_tail_x[2]],color='red')
     ax.plot([drone_center[0],drone_tail_y[0]],[drone_center[1],drone_tail_y[1]],[drone_center[2],drone_tail_y[2]],color='green')
     ax.plot([drone_center[0],drone_tail_z[0]],[drone_center[1],drone_tail_z[1]],[drone_center[2],drone_tail_z[2]],color='blue')
 
-    aruco_head =   T_WM@R2@pose_C_unit.dot(np.array([0,0,0,1]))
-    aruco_tail_x = T_WM@R2@pose_C_unit.dot(xaxis_h)
-    aruco_tail_y = T_WM@R2@pose_C_unit.dot(yaxis_h)
-    aruco_tail_z = T_WM@R2@pose_C_unit.dot(zaxis_h)
+    aruco_head =   T_WM@pose_C_unit.dot(np.array([0,0,0,1]))
+    aruco_tail_x = T_WM@pose_C_unit.dot(xaxis_h)
+    aruco_tail_y = T_WM@pose_C_unit.dot(yaxis_h)
+    aruco_tail_z = T_WM@pose_C_unit.dot(zaxis_h)
 
-    #ax.plot(aruco_head[0],aruco_head[1],aruco_head[2],'x',color='teal',label="Camera Estimate")
+    ax.plot(aruco_head[0],aruco_head[1],aruco_head[2],'x',color='teal',label="Camera Estimate")
     ax.plot([aruco_head[0],aruco_tail_x[0]],[aruco_head[1],aruco_tail_x[1]],[aruco_head[2],aruco_tail_x[2]],color='red',linewidth = 0.5)
     ax.plot([aruco_head[0],aruco_tail_y[0]],[aruco_head[1],aruco_tail_y[1]],[aruco_head[2],aruco_tail_y[2]],color='green',linewidth = 0.5)
     ax.plot([aruco_head[0],aruco_tail_z[0]],[aruco_head[1],aruco_tail_z[1]],[aruco_head[2],aruco_tail_z[2]],color='blue',linewidth = 0.5)
+
+
+    # Drone to cam
+    drone_center = T_WD_unit[:4,3]
+    drone_tail_x = T_WD_unit@RXneg90@xaxis_h
+    drone_tail_y = T_WD_unit@RXneg90@yaxis_h
+    drone_tail_z = T_WD_unit@RXneg90@zaxis_h
+
+    ax.plot(drone_center[0],drone_center[1],drone_center[2],'x',color='purple',label=f'drone{j} location')
+    ax.plot([drone_center[0],drone_tail_x[0]],[drone_center[1],drone_tail_x[1]],[drone_center[2],drone_tail_x[2]],color='m')
+    ax.plot([drone_center[0],drone_tail_y[0]],[drone_center[1],drone_tail_y[1]],[drone_center[2],drone_tail_y[2]],color='y')
+    ax.plot([drone_center[0],drone_tail_z[0]],[drone_center[1],drone_tail_z[1]],[drone_center[2],drone_tail_z[2]],color='c')
 
     euler_marker = transformations.euler_from_matrix(Ts)
     euler_marker = np.round(euler_marker,2)
@@ -157,13 +173,13 @@ for j in range(len(pose_C)):
     distance_drone2marker = np.linalg.norm(T_WD_unit[:3,3]-aruco_head[:3])
     distance_all.append(distance_drone2marker)
 
-ax.set_xlabel('x')
-ax.set_ylabel('y')
-ax.set_zlabel('z')
-# plt.legend()
-plt.axis('equal')
-plt.title(f"euler angle {euler_marker}")
-plt.show()
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('z')
+    # plt.legend()
+    plt.axis('equal')
+    plt.title(f"euler angle {euler_marker}")
+    plt.show()
 
 # plt.hist(distance_all)
 # plt.title("Outlier: Distance between Drone GT and Estimated Drone Cam Location")
@@ -191,7 +207,7 @@ for j in range(pose_C.shape[0]):
     x.append(distance[0])
     y.append(distance[1])
     z.append(distance[2])
-    print(f"difference: {distance}")
+    # print(f"difference: {distance}")
 
 print("Averagesd",np.mean(x),np.mean(y),np.mean(z))
 
@@ -246,92 +262,93 @@ print(T_DC_result)
 
 ######################################################## PART III: VERIFY TRANSFORMATION ########################################################
 
+partiii = False
+if partiii:
+    #### PLOT IN WORLD COORDINATE ####
+    for j in range(pose_C.shape[0]):
+        fig = plt.figure()
+        ax = fig.add_subplot(111,projection='3d')
+        ax.plot(0,0,0, 'x',color='red',label="world center")
+        ax.plot(marker_GT[0],marker_GT[1],marker_GT[2],'x',color='green',label='marker location')
 
-#### PLOT IN WORLD COORDINATE ####
-for j in range(pose_C.shape[0]):
-    fig = plt.figure()
-    ax = fig.add_subplot(111,projection='3d')
-    ax.plot(0,0,0, 'x',color='red',label="world center")
-    ax.plot(marker_GT[0],marker_GT[1],marker_GT[2],'x',color='green',label='marker location')
+        T_WD_unit = T_WD[j]
+        pose_C_unit = pose_C[j]
 
-    T_WD_unit = T_WD[j]
-    pose_C_unit = pose_C[j]
+        scale = 0.5
+        xaxis_h = np.array([1*scale,0,0,1])
+        yaxis_h = np.array([0,1*scale,0,1])
+        zaxis_h = np.array([0,0,1*scale,1])
 
-    scale = 0.5
-    xaxis_h = np.array([1*scale,0,0,1])
-    yaxis_h = np.array([0,1*scale,0,1])
-    zaxis_h = np.array([0,0,1*scale,1])
+        ax.plot([0,xaxis[0]*scale],[0,xaxis[1]*scale],[0,xaxis[2]*scale],color='red')
+        ax.plot([0,yaxis[0]*scale],[0,yaxis[1]*scale],[0,yaxis[2]*scale],color='green')
+        ax.plot([0,zaxis[0]*scale],[0,zaxis[1]*scale],[0,zaxis[2]*scale],color='blue')
 
-    ax.plot([0,xaxis[0]*scale],[0,xaxis[1]*scale],[0,xaxis[2]*scale],color='red')
-    ax.plot([0,yaxis[0]*scale],[0,yaxis[1]*scale],[0,yaxis[2]*scale],color='green')
-    ax.plot([0,zaxis[0]*scale],[0,zaxis[1]*scale],[0,zaxis[2]*scale],color='blue')
+        marker_center = T_WM[:4,3]
+        marker_tail_x = T_WM@xaxis_h
+        marker_tail_y = T_WM@yaxis_h
+        marker_tail_z = T_WM@zaxis_h
 
-    marker_center = T_WM[:4,3]
-    marker_tail_x = T_WM@xaxis_h
-    marker_tail_y = T_WM@yaxis_h
-    marker_tail_z = T_WM@zaxis_h
+        ax.plot([marker_center[0],marker_tail_x[0]],[marker_center[1],marker_tail_x[1]],[marker_center[2],marker_tail_x[2]],color='red')
+        ax.plot([marker_center[0],marker_tail_y[0]],[marker_center[1],marker_tail_y[1]],[marker_center[2],marker_tail_y[2]],color='green')
+        ax.plot([marker_center[0],marker_tail_z[0]],[marker_center[1],marker_tail_z[1]],[marker_center[2],marker_tail_z[2]],color='blue')
 
-    ax.plot([marker_center[0],marker_tail_x[0]],[marker_center[1],marker_tail_x[1]],[marker_center[2],marker_tail_x[2]],color='red')
-    ax.plot([marker_center[0],marker_tail_y[0]],[marker_center[1],marker_tail_y[1]],[marker_center[2],marker_tail_y[2]],color='green')
-    ax.plot([marker_center[0],marker_tail_z[0]],[marker_center[1],marker_tail_z[1]],[marker_center[2],marker_tail_z[2]],color='blue')
+        drone_center = T_WD_unit[:4,3]
+        drone_tail_x = T_WD_unit@xaxis_h
+        drone_tail_y = T_WD_unit@yaxis_h
+        drone_tail_z = T_WD_unit@zaxis_h
 
-    drone_center = T_WD_unit[:4,3]
-    drone_tail_x = T_WD_unit@xaxis_h
-    drone_tail_y = T_WD_unit@yaxis_h
-    drone_tail_z = T_WD_unit@zaxis_h
+        ax.plot(T_WD_unit[0][3],T_WD_unit[1][3],T_WD_unit[2][3],'x',color='purple',label=f'drone{j} location')
+        ax.plot([drone_center[0],drone_tail_x[0]],[drone_center[1],drone_tail_x[1]],[drone_center[2],drone_tail_x[2]],color='red')
+        ax.plot([drone_center[0],drone_tail_y[0]],[drone_center[1],drone_tail_y[1]],[drone_center[2],drone_tail_y[2]],color='green')
+        ax.plot([drone_center[0],drone_tail_z[0]],[drone_center[1],drone_tail_z[1]],[drone_center[2],drone_tail_z[2]],color='blue')
 
-    ax.plot(T_WD_unit[0][3],T_WD_unit[1][3],T_WD_unit[2][3],'x',color='purple',label=f'drone{j} location')
-    ax.plot([drone_center[0],drone_tail_x[0]],[drone_center[1],drone_tail_x[1]],[drone_center[2],drone_tail_x[2]],color='red')
-    ax.plot([drone_center[0],drone_tail_y[0]],[drone_center[1],drone_tail_y[1]],[drone_center[2],drone_tail_y[2]],color='green')
-    ax.plot([drone_center[0],drone_tail_z[0]],[drone_center[1],drone_tail_z[1]],[drone_center[2],drone_tail_z[2]],color='blue')
+        aruco_head =   T_WM@pose_C_unit.dot(np.array([0,0,0,1]))
+        aruco_tail_x = T_WM@pose_C_unit.dot(xaxis_h)
+        aruco_tail_y = T_WM@pose_C_unit.dot(yaxis_h)
+        aruco_tail_z = T_WM@pose_C_unit.dot(zaxis_h)
 
-    aruco_head =   T_WM@pose_C_unit.dot(np.array([0,0,0,1]))
-    aruco_tail_x = T_WM@pose_C_unit.dot(xaxis_h)
-    aruco_tail_y = T_WM@pose_C_unit.dot(yaxis_h)
-    aruco_tail_z = T_WM@pose_C_unit.dot(zaxis_h)
+        ax.plot(aruco_head[0],aruco_head[1],aruco_head[2],'x',color='teal',label="Camera Estimate")
+        ax.plot([aruco_head[0],aruco_tail_x[0]],[aruco_head[1],aruco_tail_x[1]],[aruco_head[2],aruco_tail_x[2]],color='red',linewidth = 0.5)
+        ax.plot([aruco_head[0],aruco_tail_y[0]],[aruco_head[1],aruco_tail_y[1]],[aruco_head[2],aruco_tail_y[2]],color='green',linewidth = 0.5)
+        ax.plot([aruco_head[0],aruco_tail_z[0]],[aruco_head[1],aruco_tail_z[1]],[aruco_head[2],aruco_tail_z[2]],color='blue',linewidth = 0.5)
 
-    ax.plot(aruco_head[0],aruco_head[1],aruco_head[2],'x',color='teal',label="Camera Estimate")
-    ax.plot([aruco_head[0],aruco_tail_x[0]],[aruco_head[1],aruco_tail_x[1]],[aruco_head[2],aruco_tail_x[2]],color='red',linewidth = 0.5)
-    ax.plot([aruco_head[0],aruco_tail_y[0]],[aruco_head[1],aruco_tail_y[1]],[aruco_head[2],aruco_tail_y[2]],color='green',linewidth = 0.5)
-    ax.plot([aruco_head[0],aruco_tail_z[0]],[aruco_head[1],aruco_tail_z[1]],[aruco_head[2],aruco_tail_z[2]],color='blue',linewidth = 0.5)
-
-    # Using T_DC to verify
-    def rot(the):
-        rotation = np.array([[1,0,0,0],
-                        [0, np.cos(the),-np.sin(the),0],
-                        [0,np.sin(the), np.cos(the),0],
-                        [0,0,0,1]])
-        return rotation
-    
+        # Using T_DC to verify
+        def rot(the):
+            rotation = np.array([[1,0,0,0],
+                            [0, np.cos(the),-np.sin(the),0],
+                            [0,np.sin(the), np.cos(the),0],
+                            [0,0,0,1]])
+            return rotation
+        
 
 
-    # aruco_head_v =   T_WD_unit[:4,3]
-    # aruco_tailv_x = T_WD_unit@rot(-np.pi/2)@xaxis_h
-    # aruco_tailv_y = T_WD_unit@rot(-np.pi/2)@yaxis_h
-    # aruco_tailv_z = T_WD_unit@rot(-np.pi/2)@zaxis_h
+        # aruco_head_v =   T_WD_unit[:4,3]
+        # aruco_tailv_x = T_WD_unit@rot(-np.pi/2)@xaxis_h
+        # aruco_tailv_y = T_WD_unit@rot(-np.pi/2)@yaxis_h
+        # aruco_tailv_z = T_WD_unit@rot(-np.pi/2)@zaxis_h
 
-    aruco_head_v =   T_DC_result@T_WD_unit[:4,3]
-    aruco_tailv_x = T_DC_result@T_WD_unit@rot(-np.pi/2)@xaxis_h
-    aruco_tailv_y = T_DC_result@T_WD_unit@rot(-np.pi/2)@yaxis_h
-    aruco_tailv_z = T_DC_result@T_WD_unit@rot(-np.pi/2)@zaxis_h
+        aruco_head_v =   T_DC_result@T_WD_unit[:4,3]
+        aruco_tailv_x = T_DC_result@T_WD_unit@rot(-np.pi/2)@xaxis_h
+        aruco_tailv_y = T_DC_result@T_WD_unit@rot(-np.pi/2)@yaxis_h
+        aruco_tailv_z = T_DC_result@T_WD_unit@rot(-np.pi/2)@zaxis_h
 
-    ax.plot(aruco_head_v[0],aruco_head_v[1],aruco_head_v[2],'*',color='red',label="Camera from transformation")
-    ax.plot([aruco_head_v[0],aruco_tailv_x[0]],[aruco_head_v[1],aruco_tailv_x[1]],[aruco_head_v[2],aruco_tailv_x[2]],color='red',linewidth = 0.5)
-    ax.plot([aruco_head_v[0],aruco_tailv_y[0]],[aruco_head_v[1],aruco_tailv_y[1]],[aruco_head_v[2],aruco_tailv_y[2]],color='green',linewidth = 0.5)
-    ax.plot([aruco_head_v[0],aruco_tailv_z[0]],[aruco_head_v[1],aruco_tailv_z[1]],[aruco_head_v[2],aruco_tailv_z[2]],color='blue',linewidth = 0.5)
+        ax.plot(aruco_head_v[0],aruco_head_v[1],aruco_head_v[2],'*',color='red',label="Camera from transformation")
+        ax.plot([aruco_head_v[0],aruco_tailv_x[0]],[aruco_head_v[1],aruco_tailv_x[1]],[aruco_head_v[2],aruco_tailv_x[2]],color='red',linewidth = 0.5)
+        ax.plot([aruco_head_v[0],aruco_tailv_y[0]],[aruco_head_v[1],aruco_tailv_y[1]],[aruco_head_v[2],aruco_tailv_y[2]],color='green',linewidth = 0.5)
+        ax.plot([aruco_head_v[0],aruco_tailv_z[0]],[aruco_head_v[1],aruco_tailv_z[1]],[aruco_head_v[2],aruco_tailv_z[2]],color='blue',linewidth = 0.5)
 
-    euler_marker = transformations.euler_from_matrix(Ts)
-    euler_marker = np.round(euler_marker,2)
-    euler_marker = euler_marker * 180 / np.pi
-    euler_marker = np.round(euler_marker,2)
+        euler_marker = transformations.euler_from_matrix(Ts)
+        euler_marker = np.round(euler_marker,2)
+        euler_marker = euler_marker * 180 / np.pi
+        euler_marker = np.round(euler_marker,2)
 
-    distance_drone2marker = np.linalg.norm(T_WD_unit[:3,3]-aruco_head[:3])
-    distance_all.append(distance_drone2marker)
+        distance_drone2marker = np.linalg.norm(T_WD_unit[:3,3]-aruco_head[:3])
+        distance_all.append(distance_drone2marker)
 
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_zlabel('z')
-    plt.legend()
-    plt.axis('equal')
-    plt.title(f"euler angle {euler_marker}")
-    plt.show()
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_zlabel('z')
+        plt.legend()
+        plt.axis('equal')
+        plt.title(f"euler angle {euler_marker}")
+        plt.show()
