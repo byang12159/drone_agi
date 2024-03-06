@@ -82,8 +82,8 @@ distance_all = []
 for j in range(len(pose_C)):
     fig = plt.figure()
     ax = fig.add_subplot(111,projection='3d')
-    ax.plot(0,0,0, 'x',color='red',label="world center")
-    ax.plot(marker_GT[0],marker_GT[1],marker_GT[2],'x',color='green',label='marker location')
+    #ax.plot(0,0,0, 'x',color='red',label="world center")
+    #ax.plot(marker_GT[0],marker_GT[1],marker_GT[2],'x',color='green',label='marker location')
 
     T_WD_unit = T_WD[j]
     pose_C_unit = pose_C[j]
@@ -125,7 +125,7 @@ for j in range(len(pose_C)):
     drone_tail_y = T_WD_unit@yaxis_h
     drone_tail_z = T_WD_unit@zaxis_h
 
-    ax.plot(T_WD_unit[0][3],T_WD_unit[1][3],T_WD_unit[2][3],'x',color='purple',label=f'drone{j} location')
+    #ax.plot(T_WD_unit[0][3],T_WD_unit[1][3],T_WD_unit[2][3],'x',color='purple',label=f'drone{j} location')
     ax.plot([drone_center[0],drone_tail_x[0]],[drone_center[1],drone_tail_x[1]],[drone_center[2],drone_tail_x[2]],color='red')
     ax.plot([drone_center[0],drone_tail_y[0]],[drone_center[1],drone_tail_y[1]],[drone_center[2],drone_tail_y[2]],color='green')
     ax.plot([drone_center[0],drone_tail_z[0]],[drone_center[1],drone_tail_z[1]],[drone_center[2],drone_tail_z[2]],color='blue')
@@ -135,7 +135,7 @@ for j in range(len(pose_C)):
     aruco_tail_y = T_WM@R2@pose_C_unit.dot(yaxis_h)
     aruco_tail_z = T_WM@R2@pose_C_unit.dot(zaxis_h)
 
-    ax.plot(aruco_head[0],aruco_head[1],aruco_head[2],'x',color='teal',label="Camera Estimate")
+    #ax.plot(aruco_head[0],aruco_head[1],aruco_head[2],'x',color='teal',label="Camera Estimate")
     ax.plot([aruco_head[0],aruco_tail_x[0]],[aruco_head[1],aruco_tail_x[1]],[aruco_head[2],aruco_tail_x[2]],color='red',linewidth = 0.5)
     ax.plot([aruco_head[0],aruco_tail_y[0]],[aruco_head[1],aruco_tail_y[1]],[aruco_head[2],aruco_tail_y[2]],color='green',linewidth = 0.5)
     ax.plot([aruco_head[0],aruco_tail_z[0]],[aruco_head[1],aruco_tail_z[1]],[aruco_head[2],aruco_tail_z[2]],color='blue',linewidth = 0.5)
