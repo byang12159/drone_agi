@@ -77,12 +77,12 @@ T_WM = transformations.quaternion_matrix(q)
 T_WM[:3, 3] = marker_GT[:3]
 
 distance_all = []
-
+fig = plt.figure()
+ax = fig.add_subplot(111,projection='3d')
 #### PLOT IN WORLD COORDINATE ####
 for j in range(len(pose_C)):
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111,projection='3d')
+
     ax.plot(0,0,0, 'x',color='red',label="world center")
     ax.plot(marker_GT[0],marker_GT[1],marker_GT[2],'x',color='green',label='marker location')
 
@@ -173,13 +173,13 @@ for j in range(len(pose_C)):
     distance_drone2marker = np.linalg.norm(T_WD_unit[:3,3]-aruco_head[:3])
     distance_all.append(distance_drone2marker)
 
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_zlabel('z')
-    # plt.legend()
-    plt.axis('equal')
-    plt.title(f"euler angle {euler_marker}")
-    plt.show()
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_zlabel('z')
+# plt.legend()
+plt.axis('equal')
+plt.title(f"euler angle {euler_marker}")
+plt.show()
 
 # plt.hist(distance_all)
 # plt.title("Outlier: Distance between Drone GT and Estimated Drone Cam Location")

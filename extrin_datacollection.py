@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 marker_GT_state = [2.33148876953125, 1.1829923095703125, 0.6608572998046875, -8.76462683081627e-05, -0.0005406544804573059, 0.00033645230531692506, -0.007194867610931396, -0.015786824226379396, 0.008081820487976074, 2.379852294921875, -0.00091552734375, 0.00327301025390625, -0.01073455810546875, 0.9282073974609375, 0.3719024658203125, 1709741184.374893]
 parser = argparse.ArgumentParser(description="")
 parser.add_argument('-id','--gates_id', type=int, default=0, help='IDs of the ArUco markers')
-parser.add_argument('--markersize', type=float, default=100, help='Size of the ArUco marker in mm')
+parser.add_argument('--markersize', type=float, default=84, help='Size of the ArUco marker in mm')
 parser.add_argument('--save_dir', type=str, default="", help='directory to save')
 parser.add_argument('--save', type=str, default="", help='filename to save')
 args = parser.parse_args()

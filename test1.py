@@ -11,8 +11,19 @@ from scipy.optimize import least_squares
 from picam.transformation_properties_drone import get_T_DC
 import argparse
 
+def rotz(angle):
+    return np.array([[np.cos(angle),-np.sin(angle),0,0],
+                    [np.sin(angle),np.cos(angle),0,0],
+                    [0,0,1,0],
+                    [0,0,0,1]])
+
+def rotz3(angle):
+    return np.array([[np.cos(angle),-np.sin(angle),0],
+                    [np.sin(angle),np.cos(angle),0],
+                    [0,0,1]])
+
 parser = argparse.ArgumentParser(description="")
-parser.add_argument('--filename', type=str, default="datacollect3.pkl", help='pickle filename to import data')
+parser.add_argument('--filename', type=str, default="datacollect_B_1.pkl", help='pickle filename to import data')
 parser.add_argument('--outlier', type=float, default=1.0, help='cutoff for filtering before loss computation')
 parser.add_argument('--targetID', type=int, default=0, help='aruco marker ID to detect')
 
@@ -40,7 +51,7 @@ for j in range(len(data)):
 
             Ts = data[j][3][0][a]
             Ts_inv = np.linalg.inv(Ts)
-            pose_C.append(Ts)
+            pose_C.append(Ts_inv)
 
             # Just constant 
             marker_GT = data[0][1]
@@ -56,7 +67,7 @@ for j in range(len(data)):
 # cv2.destroyAllWindows()
 
 marker_GT = data[0][1]
-marker_GT = [2.33148876953125, 1.1829923095703125, 0.6608572998046875, -8.76462683081627e-05, -0.0005406544804573059, 0.00033645230531692506, -0.007194867610931396, -0.015786824226379396, 0.008081820487976074, 2.379852294921875, -0.00091552734375, 0.00327301025390625, -0.01073455810546875, 0.9282073974609375, 0.3719024658203125, 1709741184.374893]
+marker_GT = [2.108356201171875, 0.814648681640625, 0.6669138793945313, -0.0004423944652080536, 1.543397270143032e-05, 0.001357092261314392, -0.014364360809326172, 0.00015283389389514923, 0.04490167999267578, 1.9195709228515625, -0.002685546875, 0.03118133544921875, -0.01715850830078125, 0.8185806274414062, 0.5732955932617188, 1709766963.8105612]
 
 spotted_count = []
 Ts_full = []
@@ -64,14 +75,14 @@ snapstate_full = []
 target_ID = 0
 
 scale = 0.4
-xaxis_h = np.array([1*scale,0,0,1])
-yaxis_h = np.array([0,1*scale,0,1])
-zaxis_h = np.array([0,0,1*scale,1])
+xaxis_h = rotz(np.pi/2) @np.array([1*scale,0,0,1])
+yaxis_h = rotz(np.pi/2) @np.array([0,1*scale,0,1])
+zaxis_h = rotz(np.pi/2) @np.array([0,0,1*scale,1])
 
 # Unit vectors along axes
-xaxis = np.array([1, 0, 0])
-yaxis = np.array([0, 1, 0])
-zaxis = np.array([0, 0, 1])
+xaxis = rotz3(np.pi/2) @np.array([1, 0, 0])
+yaxis = rotz3(np.pi/2) @np.array([0, 1, 0])
+zaxis = rotz3(np.pi/2) @np.array([0, 0, 1])
 
 q = marker_GT[11:15] # x, y, z, w
 T_WM = transformations.quaternion_matrix(q)
@@ -81,19 +92,24 @@ distance_all = []
 
 #### PLOT IN WORLD COORDINATE ####
 for j in range(len(pose_C)):
+
     fig = plt.figure()
     ax = fig.add_subplot(111,projection='3d')
-
-    #ax.plot(0,0,0, 'x',color='red',label="world center")
-    #ax.plot(marker_GT[0],marker_GT[1],marker_GT[2],'x',color='green',label='marker location')
+    ax.plot(0,0,0, 'x',color='red',label="world center")
+    ax.plot(marker_GT[0],marker_GT[1],marker_GT[2],'x',color='green',label='Chaser location')
 
     T_WD_unit = T_WD[j]
+    # leaddronevicon =[0.08403057098388672, -0.40664501953125, 0.05818780517578125, 0.00010395781695842743, 0.00019048668444156646, -1.051737181842327e-05, 0.010276329994201661, 0.0018479542732238769, -0.004929679870605469, 3.1351547241210938, -0.0021820068359375, -0.09761810302734375, 0.0123748779296875, -0.00211334228515625, 0.995147705078125, 1709767258.1344569]
+    # q = leaddronevicon[11:15] # x, y, z, w
+    # T_WD_unit = transformations.quaternion_matrix(q)
+    # T_WD_unit[:3, 3] = leaddronevicon[:3]
+
     pose_C_unit = pose_C[j]
 
     scale = 0.5
-    xaxis_h = np.array([1*scale,0,0,1])
-    yaxis_h = np.array([0,1*scale,0,1])
-    zaxis_h = np.array([0,0,1*scale,1])
+    xaxis_h = rotz(np.pi/2) @np.array([1*scale,0,0,1])
+    yaxis_h = rotz(np.pi/2) @np.array([0,1*scale,0,1])
+    zaxis_h = rotz(np.pi/2) @np.array([0,0,1*scale,1])
 
     ax.plot([0,xaxis[0]*scale],[0,xaxis[1]*scale],[0,xaxis[2]*scale],color='red')
     ax.plot([0,yaxis[0]*scale],[0,yaxis[1]*scale],[0,yaxis[2]*scale],color='green')
@@ -104,7 +120,7 @@ for j in range(len(pose_C)):
     drone_chase_tail_y = T_WM@yaxis_h
     drone_chase_tail_z = T_WM@zaxis_h
 
-    ax.plot(drone_chase_center[0],drone_chase_center[1],drone_chase_center[2],'x',color='red', label='Chaser Drone')
+    ax.plot(drone_chase_center[0],drone_chase_center[1],drone_chase_center[2],'*',color='cyan', label='Chaser Drone')
     ax.plot([drone_chase_center[0],drone_chase_tail_x[0]],[drone_chase_center[1],drone_chase_tail_x[1]],[drone_chase_center[2],drone_chase_tail_x[2]],color='red')
     ax.plot([drone_chase_center[0],drone_chase_tail_y[0]],[drone_chase_center[1],drone_chase_tail_y[1]],[drone_chase_center[2],drone_chase_tail_y[2]],color='green')
     ax.plot([drone_chase_center[0],drone_chase_tail_z[0]],[drone_chase_center[1],drone_chase_tail_z[1]],[drone_chase_center[2],drone_chase_tail_z[2]],color='blue')
@@ -138,7 +154,7 @@ for j in range(len(pose_C)):
     lead_drone_tail_z = T_WD_unit@zaxis_h
 
     # Lead Drone
-    ax.plot(lead_drone_center[0],lead_drone_center[1],lead_drone_center[2],'x',color='purple',label=f'drone{j} location')
+    ax.plot(lead_drone_center[0],lead_drone_center[1],lead_drone_center[2],'x',color='purple',label=f'lead drone{j} location')
     ax.plot([lead_drone_center[0],lead_drone_tail_x[0]],[lead_drone_center[1],lead_drone_tail_x[1]],[lead_drone_center[2],lead_drone_tail_x[2]],color='red')
     ax.plot([lead_drone_center[0],lead_drone_tail_y[0]],[lead_drone_center[1],lead_drone_tail_y[1]],[lead_drone_center[2],lead_drone_tail_y[2]],color='green')
     ax.plot([lead_drone_center[0],lead_drone_tail_z[0]],[lead_drone_center[1],lead_drone_tail_z[1]],[lead_drone_center[2],lead_drone_tail_z[2]],color='blue')
@@ -157,10 +173,10 @@ for j in range(len(pose_C)):
     aruco_tail_y = T_WD_unit@T_DC@pose_C_unit.dot(yaxis_h)
     aruco_tail_z = T_WD_unit@T_DC@pose_C_unit.dot(zaxis_h)
 
-    # ax.plot(aruco_head[0],aruco_head[1],aruco_head[2],'x',color='teal',label="Camera Estimate")
-    # ax.plot([aruco_head[0],aruco_tail_x[0]],[aruco_head[1],aruco_tail_x[1]],[aruco_head[2],aruco_tail_x[2]],color='red',linewidth = 0.5)
-    # ax.plot([aruco_head[0],aruco_tail_y[0]],[aruco_head[1],aruco_tail_y[1]],[aruco_head[2],aruco_tail_y[2]],color='green',linewidth = 0.5)
-    # ax.plot([aruco_head[0],aruco_tail_z[0]],[aruco_head[1],aruco_tail_z[1]],[aruco_head[2],aruco_tail_z[2]],color='blue',linewidth = 0.5)
+    ax.plot(aruco_head[0],aruco_head[1],aruco_head[2],'x',color='teal',label="Camera Estimate")
+    ax.plot([aruco_head[0],aruco_tail_x[0]],[aruco_head[1],aruco_tail_x[1]],[aruco_head[2],aruco_tail_x[2]],color='red',linewidth = 0.5)
+    ax.plot([aruco_head[0],aruco_tail_y[0]],[aruco_head[1],aruco_tail_y[1]],[aruco_head[2],aruco_tail_y[2]],color='green',linewidth = 0.5)
+    ax.plot([aruco_head[0],aruco_tail_z[0]],[aruco_head[1],aruco_tail_z[1]],[aruco_head[2],aruco_tail_z[2]],color='blue',linewidth = 0.5)
 
     euler_marker = transformations.euler_from_matrix(Ts)
     euler_marker = np.round(euler_marker,2)
@@ -177,3 +193,5 @@ for j in range(len(pose_C)):
     plt.axis('equal')
     plt.title(f"euler angle {euler_marker}")
     plt.show()
+
+    
