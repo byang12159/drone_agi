@@ -12,7 +12,7 @@ from picam.transformation_properties_drone import get_T_DC
 import argparse
 
 parser = argparse.ArgumentParser(description="")
-parser.add_argument('--filename', type=str, default="datacollect1.pkl", help='pickle filename to import data')
+parser.add_argument('--filename', type=str, default="datacollect3.pkl", help='pickle filename to import data')
 parser.add_argument('--outlier', type=float, default=1.0, help='cutoff for filtering before loss computation')
 parser.add_argument('--targetID', type=int, default=0, help='aruco marker ID to detect')
 
