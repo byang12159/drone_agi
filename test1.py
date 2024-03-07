@@ -17,6 +17,13 @@ def rotz(angle):
                     [0,0,1,0],
                     [0,0,0,1]])
 
+def rotx(angle):
+    return np.array([[1,0,0,0],
+                    [0,np.cos(angle),-np.sin(angle),0],
+                    [0,np.sin(angle),np.cos(angle),0],
+                    [0,0,0,1]])
+    
+
 def rotz3(angle):
     return np.array([[np.cos(angle),-np.sin(angle),0],
                     [np.sin(angle),np.cos(angle),0],
@@ -56,9 +63,9 @@ for j in range(len(data)):
             # Just constant 
             marker_GT = data[0][1]
             q = marker_GT[11:15] # x, y, z, w
-            T_WM = transformations.quaternion_matrix(q)
-            T_WM[:3, 3] = marker_GT[:3]
-            pose_W.append(T_WM)
+            T_WC = transformations.quaternion_matrix(q)
+            T_WC[:3, 3] = marker_GT[:3]
+            pose_W.append(T_WC)
 
 
 # img = cv2.imread('calibration_imgs/img0.png')
@@ -85,8 +92,8 @@ yaxis = rotz3(np.pi/2) @np.array([0, 1, 0])
 zaxis = rotz3(np.pi/2) @np.array([0, 0, 1])
 
 q = marker_GT[11:15] # x, y, z, w
-T_WM = transformations.quaternion_matrix(q)
-T_WM[:3, 3] = marker_GT[:3]
+T_WC = transformations.quaternion_matrix(q)
+T_WC[:3, 3] = marker_GT[:3]
 
 distance_all = []
 
@@ -106,47 +113,19 @@ for j in range(len(pose_C)):
 
     pose_C_unit = pose_C[j]
 
-    scale = 0.5
-    xaxis_h = rotz(np.pi/2) @np.array([1*scale,0,0,1])
-    yaxis_h = rotz(np.pi/2) @np.array([0,1*scale,0,1])
-    zaxis_h = rotz(np.pi/2) @np.array([0,0,1*scale,1])
-
     ax.plot([0,xaxis[0]*scale],[0,xaxis[1]*scale],[0,xaxis[2]*scale],color='red')
     ax.plot([0,yaxis[0]*scale],[0,yaxis[1]*scale],[0,yaxis[2]*scale],color='green')
     ax.plot([0,zaxis[0]*scale],[0,zaxis[1]*scale],[0,zaxis[2]*scale],color='blue')
 
-    drone_chase_center = T_WM[:4,3]
-    drone_chase_tail_x = T_WM@xaxis_h
-    drone_chase_tail_y = T_WM@yaxis_h
-    drone_chase_tail_z = T_WM@zaxis_h
+    drone_chase_center = T_WC[:4,3]
+    drone_chase_tail_x = T_WC@xaxis_h
+    drone_chase_tail_y = T_WC@yaxis_h
+    drone_chase_tail_z = T_WC@zaxis_h
 
     ax.plot(drone_chase_center[0],drone_chase_center[1],drone_chase_center[2],'*',color='cyan', label='Chaser Drone')
     ax.plot([drone_chase_center[0],drone_chase_tail_x[0]],[drone_chase_center[1],drone_chase_tail_x[1]],[drone_chase_center[2],drone_chase_tail_x[2]],color='red')
     ax.plot([drone_chase_center[0],drone_chase_tail_y[0]],[drone_chase_center[1],drone_chase_tail_y[1]],[drone_chase_center[2],drone_chase_tail_y[2]],color='green')
     ax.plot([drone_chase_center[0],drone_chase_tail_z[0]],[drone_chase_center[1],drone_chase_tail_z[1]],[drone_chase_center[2],drone_chase_tail_z[2]],color='blue')
-
-    # R2 = np.array([[0,-1,0,0],
-    #             [1,0,0,0],
-    #             [0,0,1,0],
-    #             [0,0,0,1]])
-
-    # R1 = np.array([[1,0,0,0],
-    #             [0,-1,0,0],
-    #             [0,0,1,0],
-    #             [0,0,0,1]])
-    
-    R2 = np.array([[1,0,0,0],
-                [0,1,0,0],
-                [0,0,1,0],
-                [0,0,0,1]])
-
-    R1 = np.array([[1,0,0,0],
-                [0,1,0,0],
-                [0,0,1,0],
-                [0,0,0,1]])
-    xaxis_h = R2@R1@xaxis_h
-    yaxis_h = R2@R1@yaxis_h
-    zaxis_h = R2@R1@zaxis_h
 
     lead_drone_center = T_WD_unit[:4,3]
     lead_drone_tail_x = T_WD_unit@xaxis_h
@@ -159,19 +138,21 @@ for j in range(len(pose_C)):
     ax.plot([lead_drone_center[0],lead_drone_tail_y[0]],[lead_drone_center[1],lead_drone_tail_y[1]],[lead_drone_center[2],lead_drone_tail_y[2]],color='green')
     ax.plot([lead_drone_center[0],lead_drone_tail_z[0]],[lead_drone_center[1],lead_drone_tail_z[1]],[lead_drone_center[2],lead_drone_tail_z[2]],color='blue')
 
-    def rotx(angle):
-        return np.array([[1,0,0,0],
-                         [0,np.cos(angle),-np.sin(angle),0],
-                         [0,np.sin(angle),np.cos(angle),0],
-                        [0,0,0,1]])
-    
-
-    # T_DC = np.identity(4)
+    # Estimated position using camera
     T_DC = rotx(np.pi/2)
-    aruco_head =   T_WD_unit@T_DC@pose_C_unit.dot(np.array([0,0,0,1]))
-    aruco_tail_x = T_WD_unit@T_DC@pose_C_unit.dot(xaxis_h)
-    aruco_tail_y = T_WD_unit@T_DC@pose_C_unit.dot(yaxis_h)
-    aruco_tail_z = T_WD_unit@T_DC@pose_C_unit.dot(zaxis_h)
+    T_DC[:3,3] = -np.array([-0.01089176, -0.01491055,  0.04597474])
+    # T_DC = np.identity(4)
+    T_ML = np.identity(4)
+    T_ML[0,3] = -0.2
+
+    aruco_head =   T_WD_unit@T_DC@pose_C_unit@T_ML.dot(np.array([0,0,0,1]))
+    aruco_tail_x = T_WD_unit@T_DC@pose_C_unit@T_ML.dot(xaxis_h)
+    aruco_tail_y = T_WD_unit@T_DC@pose_C_unit@T_ML.dot(yaxis_h)
+    aruco_tail_z = T_WD_unit@T_DC@pose_C_unit@T_ML.dot(zaxis_h)
+    # aruco_head =   T_WC@T_DC@pose_C_unit@np.array([0,0,0,1])
+    # aruco_tail_x = T_WC@T_DC@pose_C_unit@(xaxis_h)
+    # aruco_tail_y = T_WC@T_DC@pose_C_unit@(yaxis_h)
+    # aruco_tail_z = T_WC@T_DC@pose_C_unit@(zaxis_h)
 
     ax.plot(aruco_head[0],aruco_head[1],aruco_head[2],'x',color='teal',label="Camera Estimate")
     ax.plot([aruco_head[0],aruco_tail_x[0]],[aruco_head[1],aruco_tail_x[1]],[aruco_head[2],aruco_tail_x[2]],color='red',linewidth = 0.5)
