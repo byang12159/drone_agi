@@ -5,7 +5,7 @@ from scipy.optimize import least_squares
 from picam.transformation_properties_drone import get_T_DC
 from utils import transformations
 
-with open("calibration_data_test4.p",'rb') as handle:
+with open("datacollect_B_1.pkl",'rb') as handle:
     data = pickle.load(handle)
 
 pose_C = []

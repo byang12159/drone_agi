@@ -34,7 +34,7 @@ def roty3(angle):
                      [0,1,0],
                     [-np.sin(angle),0,np.cos(angle)]])
 parser = argparse.ArgumentParser(description="")
-parser.add_argument('--filename', type=str, default="datacollect_B_1.pkl", help='pickle filename to import data')
+parser.add_argument('--filename', type=str, default="datacollect4.pkl", help='pickle filename to import data')
 parser.add_argument('--outlier', type=float, default=1.0, help='cutoff for filtering before loss computation')
 parser.add_argument('--targetID', type=int, default=0, help='aruco marker ID to detect')
 
