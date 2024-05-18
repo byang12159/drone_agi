@@ -40,12 +40,12 @@ def rotationMatrixToEulerAngles(R) :
 
 
 # marker size mm marker_size=83
-def detect_aruco(camera_mtx, distortion_param,cap=None, save=None, visualize=False, marker_size=100):
+def detect_aruco(camera_mtx, distortion_param, save=None, visualize=True, marker_size=100):
 
-    if cap is None:
-        cap = get_camera()
-        time.sleep(2)
-        print("capstatus",cap)
+
+    cap = get_camera()
+    time.sleep(2)
+    print("capstatus",cap)
 
 
     ret, frame = cap.read()
@@ -239,11 +239,13 @@ if __name__ == "__main__":
 
         distortion_param = np.array([-0.4253985 ,  0.24863036 ,-0.00162259 ,-0.003012  , -0.09376853])
 
-        cam = get_camera()
-        time.sleep(2)
+        #icam = get_camera()
+        #time.sleep(2)
+        print("camera matrix",camera_mtx)
+        print("distortion",distortion_param)
         while True:
             s = time.time()
-            Ts, ids = detect_aruco(camera_mtx, distortion_param,cam, visualize=True)
+            Ts, ids, framnum = detect_aruco(camera_mtx, distortion_param)
             print('run time %.3fs'%(time.time() - s))
             print("IDs:   ",ids)
             print("TS is:   ",Ts)
