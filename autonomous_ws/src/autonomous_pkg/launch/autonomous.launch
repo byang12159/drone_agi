@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<launch>
+	<node name="leader_waypoint" pkg="autonomous_pkg" type="picam_aruco.py" />
+</launch>

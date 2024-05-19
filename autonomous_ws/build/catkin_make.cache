@@ -1,0 +1,2 @@
+autonomous_pkg
+-DCATKIN_DEVEL_PREFIX=/home/agi2_drone/catkin_ws/src/agilicious_internal/agiros/agiros/launch/drone_agi/autonomous_ws/devel -DCMAKE_INSTALL_PREFIX=/home/agi2_drone/catkin_ws/src/agilicious_internal/agiros/agiros/launch/drone_agi/autonomous_ws/install -G Unix Makefiles
