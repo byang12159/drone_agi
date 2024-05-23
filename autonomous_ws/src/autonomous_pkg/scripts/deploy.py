@@ -4,14 +4,30 @@ import time
 from std_msgs.msg import Float32, String
 import geometry_msgs.msg as geometry_msgs
 
+global_x = 0.0
+global_y = 0.0
+global_z = 1.0 # Drone initialization height at 1m
+
 def point_callback(data):
     # This function is called every time a new Point message is received
     # Republish the received point message to a new topic
 
+    global global_x, global_y, global_z
+
+    if data.x != 0.0 and data.y != 0.0 and data.z != 0.0:
+        # Aruco Detection        
+        global_x += (data.x - 2.0)
+        global_y += data.y
+        global_z += data.z
+    
+    # Safety height filter
+    if global_z >= 2.5:
+        global_z = 2.5
+        
     target = geometry_msgs.PoseStamped()
-    target.pose.position.x = float(data.x - 2.0)
-    target.pose.position.y = float(data.y)
-    target.pose.position.z = float(data.z)
+    target.pose.position.x = float(global_x)
+    target.pose.position.y = float(global_y)
+    target.pose.position.z = float(global_z) 
     target.pose.orientation.w = float(1.0)
     target.pose.orientation.z = float(0.0)
 

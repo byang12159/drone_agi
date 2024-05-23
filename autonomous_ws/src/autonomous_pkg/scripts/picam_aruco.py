@@ -86,7 +86,7 @@ def detect_aruco(cap=None, save=None, visualize=False):
     frame = aruco.drawDetectedMarkers( frame, markerCorners, markerIds )
     Ts = []
     ids = []
-    if markerIds is not None:
+    if markerIds is not None :
         rvecs, tvecs, objPoints = cv2.aruco.estimatePoseSingleMarkers(markerCorners, markerLength=marker_size, cameraMatrix=camera_mtx, distCoeffs=distortion_param)
         # rvecs, tvecs, objpoints = aruco.estimatePoseSingleMarkers(markerCorners, marker_size, , )
         for i in range(len(markerIds)):
@@ -155,11 +155,18 @@ def publisher():
             displacement_msg = Point()
             displacement_msg.x =  Ts[0][2, 3]
             displacement_msg.y = -Ts[0][0, 3]
-            displacement_msg.z = Ts[0][1, 3]
+            displacement_msg.z = -Ts[0][1, 3]
       
             pub.publish(displacement_msg)
-            rospy.loginfo("Published Point message: {}".format(displacement_msg))
-        
+            rospy.loginfo("Aruco Detection, Published Point message: {}".format(displacement_msg))
+        else:
+            # Publish the message
+            displacement_msg = Point()
+            displacement_msg.x = 0.0
+            displacement_msg.y = 0.0
+            displacement_msg.z = 0.0
+            pub.publish(displacement_msg)
+            rospy.loginfo("No Detection, Published Point message: {}".format(displacement_msg))
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'): break
