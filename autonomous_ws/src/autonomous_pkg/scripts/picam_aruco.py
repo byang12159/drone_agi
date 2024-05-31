@@ -134,8 +134,8 @@ def release_camera(cap):
 
 def publisher():
     rospy.init_node('picam', anonymous=True)
-    pub = rospy.Publisher("/leader_waypoint", Point, queue_size=2)
-    rate = rospy.Rate(20)  # 1 Hz
+    pub = rospy.Publisher("/leader_waypoint", Point, queue_size=1)
+    rate = rospy.Rate(1)  # 1 Hz
 
     cap = get_camera()
     time.sleep(2)
@@ -159,14 +159,14 @@ def publisher():
       
             pub.publish(displacement_msg)
             rospy.loginfo("Aruco Detection, Published Point message: {}".format(displacement_msg))
-        else:
-            # Publish the message
-            displacement_msg = Point()
-            displacement_msg.x = 0.0
-            displacement_msg.y = 0.0
-            displacement_msg.z = 0.0
-            pub.publish(displacement_msg)
-            rospy.loginfo("No Detection, Published Point message: {}".format(displacement_msg))
+        # else:
+        #     # Publish the message
+        #     displacement_msg = Point()
+        #     displacement_msg.x = 0.0
+        #     displacement_msg.y = 0.0
+        #     displacement_msg.z = 0.0
+        #     pub.publish(displacement_msg)
+        #     rospy.loginfo("No Detection, Published Point message: {}".format(displacement_msg))
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'): break
