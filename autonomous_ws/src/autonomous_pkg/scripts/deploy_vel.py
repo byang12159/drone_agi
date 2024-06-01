@@ -57,26 +57,29 @@ def PID_vel(data):
     # Clear the stop event before starting the loop
     stop_event.clear()
 
-    rospy.loginfo("Starting PID_vel function, curent pos: {}, target pos: {},{},{}".format(current_pos, data.x,data.y,data.z))
-
     k_p = 1.5
-    k_i = 0.0
+    k_i = 0.5
     k_d = 0.0
 
-    integral_error = [0, 0, 0]
-    previous_error = [0, 0, 0]
+    integral_error = np.array([0.0, 0.0, 0.0])
+    previous_error = np.array([0.0, 0.0, 0.0])
     
     dt = 0.1
 
-    target_pos = [data.x, data.y, data.z]
-    current_pos = [np.copy(global_x),np.copy(global_y),np.copy(global_z)]
+    target_pos =np.array([data.x, data.y, data.z]) 
+    current_pos = np.array([np.copy(global_x),np.copy(global_y),np.copy(global_z)])
+
+    rospy.loginfo("Starting PID_vel function, curent pos: {}, target pos: {},{},{}".format(current_pos, data.x,data.y,data.z))
 
     while not stop_event.is_set() and not reached_target_position(current_pos, target_pos):
         
-        current_pos = [np.copy(global_x),np.copy(global_y),np.copy(global_z)]
+        current_pos = np.array([np.copy(global_x),np.copy(global_y),np.copy(global_z)])
 
         # Position Error
         position_error = target_pos - current_pos
+        print(position_error, previous_error, dt)
+        print("2: ", position_error-previous_error)
+        print("3: ", (position_error-previous_error)/dt)
         # Integral Error
         integral_error += position_error * dt
         # Derivative Error
@@ -84,16 +87,18 @@ def PID_vel(data):
 
         # Compute PID velocity command
         velocity_command = k_p * position_error + k_i * integral_error + k_d * derivative_error
-
+        
+        print("cmd", velocity_command)
         velocity_command = limitVelocity(velocity_command)
 
         # Send velocity commands to the quadcopter
+        print("cmd", velocity_command)
         vel_cmd = geometry_msgs.TwistStamped()
         vel_cmd.twist.linear = Vector3(0.0, velocity_command[1], 0.0)
         vel_cmd.twist.angular = Vector3(0.0, 0.0, 0.0)
 
         pub.publish(vel_cmd)
-        rospy.loginfo("Publishing VelY to Ctrl: {}".format(velocity_command[1]))
+        rospy.loginfo("Publishing VelY to Ctrl: {}, Current Pos :{}".format(velocity_command[1], current_pos))
 
         # Update previous error
         previous_error = position_error
@@ -107,15 +112,15 @@ def reached_target_position(current_position, target_position):
 
 def limitVelocity(velocity):
     # Only check y now
-    max_velocity = 2.0
+    max_velocity = 3.0
 
     if (velocity[1] > max_velocity):
         velocity[1] = max_velocity
-        return velocity 
-    
-    if (velocity[1] < -max_velocity):
+        
+    elif (velocity[1] < -max_velocity):
         velocity[1] = -max_velocity
-        return velocity
+    
+    return velocity
 
 def main():
     global pub
@@ -136,7 +141,7 @@ def main():
                     queue_size=1)
     
 
-    rate = rospy.Rate(10)  # 10 Hz
+    rate = rospy.Rate(1)  # 10 Hz
 
     while not rospy.is_shutdown():
         # Process callbacks and wait for messages

@@ -47,41 +47,46 @@
 #     except rospy.ROSInterruptException:
 #         pass
 
-    
+import numpy.linalg as la
+import numpy as np
+a = np.array([1,4,3])
+b = np.array([1,0,0])
+
+print(la.norm(a-b))
 
 
 
-import rospy
-import logging
+# import rospy
+# import logging
 
-def configure_logging():
-    # Create a logger
-    logger = logging.getLogger('rosout')
-    logger.setLevel(logging.INFO)
+# def configure_logging():
+#     # Create a logger
+#     logger = logging.getLogger('rosout')
+#     logger.setLevel(logging.INFO)
 
-    # Create a file handler
-    log_file = 'logfile.log'  # Update this path
-    fh = logging.FileHandler(log_file)
-    fh.setLevel(logging.INFO)
+#     # Create a file handler
+#     log_file = 'logfile.log'  # Update this path
+#     fh = logging.FileHandler(log_file)
+#     fh.setLevel(logging.INFO)
 
-    # Create a formatter and set it for the handler
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    fh.setFormatter(formatter)
+#     # Create a formatter and set it for the handler
+#     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+#     fh.setFormatter(formatter)
 
-    # Add the file handler to the logger
-    logger.addHandler(fh)
+#     # Add the file handler to the logger
+#     logger.addHandler(fh)
 
-def simple_node():
-    rospy.init_node('simple_node', anonymous=True)
-    configure_logging()
-    rate = rospy.Rate(1)  # 1 Hz
-    while not rospy.is_shutdown():
-        rospy.loginfo("This is an info message")
-        rate.sleep()
+# def simple_node():
+#     rospy.init_node('simple_node', anonymous=True)
+#     configure_logging()
+#     rate = rospy.Rate(1)  # 1 Hz
+#     while not rospy.is_shutdown():
+#         rospy.loginfo("This is an info message")
+#         rate.sleep()
 
-if __name__ == '__main__':
-    try:
-        simple_node()
-    except rospy.ROSInterruptException:
-        pass
+# if __name__ == '__main__':
+#     try:
+#         simple_node()
+#     except rospy.ROSInterruptException:
+#         pass
 
