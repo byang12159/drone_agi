@@ -8,11 +8,14 @@ import geometry_msgs.msg as geometry_msgs
 import agiros_msgs.msg as agiros_msgs
 import numpy as np
 from geometry_msgs.msg import TwistStamped, Twist, Vector3
+import threading
+import numpy.linalg as la
 
 global_x = None
 global_y = None
 global_z = None
 pub = None
+stop_event = threading.Event() # Create a global event that can be used to signal the loop to stop
 
 def configure_logging():
     # Create a logger
@@ -32,7 +35,6 @@ def configure_logging():
     logger.addHandler(fh)
 
 def callback_startpoint(data):
-    # function called once at initialization
     global global_x, global_y, global_z
 
     global_x = data.pose.position.x
@@ -40,40 +42,80 @@ def callback_startpoint(data):
     global_z = data.pose.position.z
     
     # rospy.loginfo("Recieving State: {},{},{}".format(global_x,global_y,global_z))
-    
  
 def point_callback(data):
+    # Signal the existing loop to stop
+    stop_event.set()
+
+    # Start a new thread for the long-running task
+    loop_thread = threading.Thread(target=PID_vel, args=(data,))
+    loop_thread.start()
+
+def PID_vel(data):
     global pub
-    # This function is called every time a new Point message is received
-    # Republish the received point message to a new topic
-
     global global_x, global_y, global_z
+    # Clear the stop event before starting the loop
+    stop_event.clear()
 
-    temp_state_x = np.copy(global_x)
-    temp_state_y = np.copy(global_y)
-    temp_state_z = np.copy(global_z)
+    rospy.loginfo("Starting PID_vel function, curent pos: {}, target pos: {},{},{}".format(current_pos, data.x,data.y,data.z))
+
+    k_p = 1.5
+    k_i = 0.0
+    k_d = 0.0
+
+    integral_error = [0, 0, 0]
+    previous_error = [0, 0, 0]
     
-    rospy.loginfo("Recieving State: {},{},{}".format(temp_state_x, temp_state_y, temp_state_z))
+    dt = 0.1
 
-    if data.y >=2.0:
-        target_vel_y = 2.0
-    elif data.y <= -2.0:
-        target_vel_y = -2.0
-    else:
-        target_vel_y = data.y
+    target_pos = [data.x, data.y, data.z]
+    current_pos = [np.copy(global_x),np.copy(global_y),np.copy(global_z)]
 
-    vel_cmd = geometry_msgs.TwistStamped()
-    vel_cmd.twist.linear = Vector3(0.0, target_vel_y, 0.0)
-    vel_cmd.twist.angular = Vector3(0.0, 0.0, 0.0)
+    while not stop_event.is_set() and not reached_target_position(current_pos, target_pos):
+        
+        current_pos = [np.copy(global_x),np.copy(global_y),np.copy(global_z)]
 
-    pub.publish(vel_cmd)
+        # Position Error
+        position_error = target_pos - current_pos
+        # Integral Error
+        integral_error += position_error * dt
+        # Derivative Error
+        derivative_error = (position_error - previous_error) / dt
+
+        # Compute PID velocity command
+        velocity_command = k_p * position_error + k_i * integral_error + k_d * derivative_error
+
+        velocity_command = limitVelocity(velocity_command)
+
+        # Send velocity commands to the quadcopter
+        vel_cmd = geometry_msgs.TwistStamped()
+        vel_cmd.twist.linear = Vector3(0.0, velocity_command[1], 0.0)
+        vel_cmd.twist.angular = Vector3(0.0, 0.0, 0.0)
+
+        pub.publish(vel_cmd)
+        rospy.loginfo("Publishing VelY to Ctrl: {}".format(velocity_command[1]))
+
+        # Update previous error
+        previous_error = position_error
+        rospy.sleep(dt)  # Sleep for a while to simulate work
+
+    rospy.loginfo("Exiting PID_vel function")
+
+def reached_target_position(current_position, target_position):
+    position_tolerance = 0.1
+    return la.norm(current_position - target_position) < position_tolerance
+
+def limitVelocity(velocity):
+    # Only check y now
+    max_velocity = 2.0
+
+    if (velocity[1] > max_velocity):
+        velocity[1] = max_velocity
+        return velocity 
     
-    # print(("Aruco Pose : {}".format([data.x,data.y,data.z])))
-    rospy.loginfo("Aruco Pose : {}".format([data.x,data.y,data.z]))
-
-    rospy.loginfo("Publishing VelY to Ctrl: {}".format(target_vel_y))
-
-    # sub_aruco.unregister()
+    if (velocity[1] < -max_velocity):
+        velocity[1] = -max_velocity
+        return velocity
 
 def main():
     global pub
