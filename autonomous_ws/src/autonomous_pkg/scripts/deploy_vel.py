@@ -17,6 +17,7 @@ global_z = None
 pub = None
 stop_event = threading.Event() # Create a global event that can be used to signal the loop to stop
 
+
 def configure_logging():
     # Create a logger
     logger = logging.getLogger('rosout')
@@ -60,6 +61,9 @@ def PID_vel(data):
     k_p = 1.5
     k_i = 0.5
     k_d = 0.0
+    integral_max = 10
+    integral_min = -10
+    
 
     integral_error = np.array([0.0, 0.0, 0.0])
     previous_error = np.array([0.0, 0.0, 0.0])
@@ -77,11 +81,10 @@ def PID_vel(data):
 
         # Position Error
         position_error = target_pos - current_pos
-        print(position_error, previous_error, dt)
-        print("2: ", position_error-previous_error)
-        print("3: ", (position_error-previous_error)/dt)
         # Integral Error
         integral_error += position_error * dt
+        integral_error = max(min(integral_error, integral_max), integral_min)  # Clamping
+    
         # Derivative Error
         derivative_error = (position_error - previous_error) / dt
 
