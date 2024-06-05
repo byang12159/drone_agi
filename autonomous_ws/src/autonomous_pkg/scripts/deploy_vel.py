@@ -11,6 +11,7 @@ from geometry_msgs.msg import TwistStamped, Twist, Vector3
 import threading
 import numpy.linalg as la
 import pickle
+import time
 
 
 class Deploy:
@@ -20,7 +21,8 @@ class Deploy:
         self.pub = None
         self.stop_event = threading.Event() # Create a global event that can be used to signal the loop to stop
         self.position_history = []
-
+        
+        # User Parameters:
         self.target_queue = 10
 
         # Control Parameters:
@@ -29,10 +31,16 @@ class Deploy:
         self.K_d = 0.0
         self.PID_integral_max = 10
         self.PID_integral_min = -10
-        self.ctrl_dt = 0.1
+        self.ctrl_dt = 0.01
+
+        # Debug use:
+        self.debug_callback_time = None
+        self.debug_vel_publish_time = None
+        self.time_record = []
+        self.time_start = time.time()
 
         try:
-            rospy.loginfo("Experiment: {}".format(time.time()))
+            rospy.loginfo("Experiment: {}".format(self.time_start))
             
             self.ctrl_thread = threading.Thread(target=self.control_scheduler, args=())
             self.ctrl_thread.start()
@@ -47,6 +55,13 @@ class Deploy:
                 pickle.dump(self.position_history, filehandler)
             rospy.loginfo("Finished Script")
 
+            runtimes = np.array(self.time_record)
+            print("datapoints num: ", runtimes.shape)
+            print("max: ",np.max(runtimes))
+            print("min: ",np.min(runtimes))
+            print("std: ",np.std(runtimes))
+            print("mean: ",np.mean(runtimes))
+
 
 
     def main(self):
@@ -56,21 +71,24 @@ class Deploy:
 
         sub_startpoint = rospy.Subscriber("/kingfisher/agiros_pilot/state", agiros_msgs.QuadState, self.callback_state)
 
-        # sub_aruco = rospy.Subscriber("/leader_waypoint", geometry_msgs.Point, callback_target)
-        sub_aruco = rospy.Subscriber("/fake_waypoint", geometry_msgs.Point, self.callback_target)
+        # Flight with vision
+        sub_aruco = rospy.Subscriber("/leader_waypoint", geometry_msgs.Point, self.callback_target)
+        # Debugging with fake_cam publisher
+        # sub_aruco = rospy.Subscriber("/fake_waypoint", geometry_msgs.Point, self.callback_target)
 
         quad_namespace = "kingfisher"
         self.pub = rospy.Publisher(quad_namespace+"/agiros_pilot/velocity_command", 
                         geometry_msgs.TwistStamped, 
                         queue_size=1)
 
-        rate = rospy.Rate(1)  # 10 Hz
+        rate = rospy.Rate(40)  # 10 Hz
         
+        print("Ready for Tracking ......")
         while not rospy.is_shutdown():
             # Process callbacks and wait for messages
             rospy.spin()
             # # Sleep to control loop rate
-            # rate.sleep()
+            rate.sleep()
         
     def configure_logging(self):
         # Create a logger
@@ -95,6 +113,7 @@ class Deploy:
         # rospy.loginfo("Recieving State: {},{},{}".format(global_x,global_y,global_z))
     
     def callback_target(self, data):
+        self.debug_callback_time = time.time()
         self.target_poses.append( np.array([data.x, data.y, data.z]))
 
         if len(self.target_poses) >= self.target_queue:
@@ -110,6 +129,7 @@ class Deploy:
                 previous_error = np.array([0.0, 0.0, 0.0])
 
                 rospy.loginfo("Starting velPID ctrl, curent pos: {}, target pos: {}".format(self.current_pose, active_target_pose))
+                debug_switch = True
 
                 while (not self.stop_event.is_set() 
                     and self.current_pose is not None 
@@ -144,6 +164,10 @@ class Deploy:
                     vel_cmd.twist.angular = Vector3(0.0, 0.0, 0.0)
 
                     self.pub.publish(vel_cmd)
+                    if debug_switch:
+                        self.debug_vel_publish_time = time.time()
+                        self.time_record.append(self.debug_vel_publish_time-self.debug_callback_time)
+                        debug_switch=False
                     rospy.loginfo("Publishing VelY to Ctrl: {}, Current Pos :{}".format(velocity_command[1], self.current_pose))
 
                     # Update previous error

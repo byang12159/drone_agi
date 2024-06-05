@@ -24,6 +24,7 @@ distortion_param = np.array([-0.4253985 ,  0.24863036 ,-0.00162259 ,-0.003012  ,
 
 marker_size = 57 #mm
 
+alltime = []
 
 
 # Checks if a matrix is a valid rotation matrix.
@@ -126,7 +127,7 @@ def get_camera():
     cap.set(4, img_height)
     cap.set(5, frame_rate)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-    time.sleep(2)
+    time.sleep(3)
     return cap
 
 def release_camera(cap):
@@ -135,16 +136,16 @@ def release_camera(cap):
 def publisher():
     rospy.init_node('picam', anonymous=True)
     pub = rospy.Publisher("/leader_waypoint", Point, queue_size=1)
-    rate = rospy.Rate(1)  # 1 Hz
+    rate = rospy.Rate(40)  # 1 Hz
 
     cap = get_camera()
     time.sleep(2)
     print("Picam cap status",cap)
     
     while not rospy.is_shutdown():
-        s = time.time()
+        # starttime = time.time()
         Ts, ids, framnum = detect_aruco(cap)
-        # print('run time %.3fs'%(time.time() - s))
+        
         print("IDs:   ",ids)
         # print("TS is:   ",Ts)
 
@@ -170,6 +171,15 @@ def publisher():
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'): break
+        # runtime = time.time() - starttime
+        # alltime.append(runtime)
+        # print('run time %.3fs'%(runtime))
+        # print("datapoints num: ", len(alltime))
+        # alltimearray = np.array(alltime)
+        # print("max: ",np.max(alltimearray))
+        # print("min: ",np.min(alltimearray))
+        # print("std: ",np.std(alltimearray))
+        # print("mean: ",np.mean(alltimearray))
         rate.sleep()
 
     cv2.destroyAllWindows()
@@ -186,3 +196,10 @@ if __name__ == '__main__':
 
     print("DONE PICAM")
 
+    # print(alltime)
+    # print("datapoints num: ", len(alltime))
+    # alltimearray = np.array(alltime)
+    # print("max: ",np.max(alltimearray))
+    # print("min: ",np.min(alltimearray))
+    # print("std: ",np.std(alltimearray))
+    # print("mean: ",np.mean(alltimearray))

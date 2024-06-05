@@ -13,7 +13,7 @@ def talker():
     pub = rospy.Publisher('/fake_waypoint', Point, queue_size=10)
     
     # Set the rate at which the messages will be published (10 Hz)
-    rate = rospy.Rate(10)  # 10hz
+    rate = rospy.Rate(1)  # 10hz
     count = 0
 
     while not rospy.is_shutdown():
@@ -34,7 +34,7 @@ def talker():
         count +=1
 
         rospy.loginfo("Publishing point {}".format(displacement_msg))
-        time.sleep(5)
+        time.sleep(1)
 
 if __name__ == '__main__':
     try:
