@@ -22,7 +22,7 @@ camera_mtx = camera_mtx * scale
 
 distortion_param = np.array([-0.4253985 ,  0.24863036 ,-0.00162259 ,-0.003012  , -0.09376853])
 
-marker_size = 57 #mm
+marker_size = 53.5 #mm
 
 alltime = []
 

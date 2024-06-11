@@ -11,7 +11,7 @@ from geometry_msgs.msg import TwistStamped, Twist, Vector3
 import threading
 import numpy.linalg as la
 import pickle
-import time
+import subprocess
 
 
 class Deploy:
@@ -21,6 +21,8 @@ class Deploy:
         self.pub = None
         self.stop_event = threading.Event() # Create a global event that can be used to signal the loop to stop
         self.position_history = []
+
+        self.rosbag_process = None
         
         # User Parameters:
         self.target_queue = 10
@@ -40,6 +42,7 @@ class Deploy:
         self.time_start = time.time()
 
         try:
+            self.start_rosbag_recording()
             rospy.loginfo("Experiment: {}".format(self.time_start))
             
             self.ctrl_thread = threading.Thread(target=self.control_scheduler, args=())
@@ -54,6 +57,7 @@ class Deploy:
             with open("Fruits.pkl", "wb") as filehandler:
                 pickle.dump(self.position_history, filehandler)
             rospy.loginfo("Finished Script")
+            self.stop_rosbag_recording()
 
             runtimes = np.array(self.time_record)
             print("datapoints num: ", runtimes.shape)
@@ -96,7 +100,7 @@ class Deploy:
         logger.setLevel(logging.INFO)
 
         # Create a file handler
-        log_file = 'logfile_deploy2.log'  # Update this path
+        log_file = 'logfile_deploy.log'  # Update this path
         fh = logging.FileHandler(log_file)
         fh.setLevel(logging.INFO)
 
@@ -114,10 +118,10 @@ class Deploy:
     
     def callback_target(self, data):
         self.debug_callback_time = time.time()
-        self.target_poses.append( np.array([data.x+self.current_pose[0], data.y+self.current_pose[1], data.z+self.current_pose[2]]))
+        self.target_poses.append( np.array([data.x, data.y, data.z]))
 
         if len(self.target_poses) >= self.target_queue:
-            self.target_poses.pop(0)
+            self.target_queue.pop(0)
 
     def control_scheduler(self):
         first = True
@@ -129,7 +133,7 @@ class Deploy:
                 integral_error = np.array([0.0, 0.0, 0.0])
                 previous_error = np.array([0.0, 0.0, 0.0])
 
-                rospy.loginfo("Starting velPID ctrl, current state: {}, target pos: {}".format(self.current_pose, active_target_pose))
+                rospy.loginfo("Starting velPID ctrl, curent pos: {}, target pos: {}".format(self.current_pose, active_target_pose))
                 debug_switch = True
 
                 while (not self.stop_event.is_set() 
@@ -169,7 +173,7 @@ class Deploy:
                         self.debug_vel_publish_time = time.time()
                         self.time_record.append(self.debug_vel_publish_time-self.debug_callback_time)
                         debug_switch=False
-                    rospy.loginfo("Publishing VelY to Ctrl: {}, Current state :{}".format(velocity_command[1], self.current_pose))
+                    rospy.loginfo("Publishing VelY to Ctrl: {}, Current Pos :{}".format(velocity_command[1], self.current_pose))
 
                     # Update previous error
                     previous_error = position_error
@@ -191,6 +195,19 @@ class Deploy:
     def stop_threads(self):
         self.stop_event.set()
         self.ctrl_thread.join()
+
+    def start_rosbag_recording(self, bag_name='uav_experiment.bag', topics=None):
+        if topics is None:
+            topics = ['/leader_waypoint']
+        self.rosbag_process = subprocess.Popen(['rosbag', 'record', '-O', bag_name] + topics)
+        rospy.loginfo("Started recording rosbag: %s", bag_name)
+
+    def stop_rosbag_recording(self):
+        if self.rosbag_process:
+            self.rosbag_process.terminate()
+            self.rosbag_process.wait()
+            rospy.loginfo("Stopped recording rosbag")
+
 
 if __name__ == '__main__':
     dep = Deploy()
