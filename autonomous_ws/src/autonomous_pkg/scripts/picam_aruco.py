@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+from line_profiler import LineProfiler
 import rospy
 from std_msgs.msg import Float32, String
 from geometry_msgs.msg import Point
@@ -36,8 +36,7 @@ def isRotationMatrix(R) :
     return n < 1e-6
  
 # Calculates rotation matrix to euler angles
-# The result is the same as MATLAB except the order
-# of the euler angles ( x and z are swapped ).
+# The result is the same as MATLAB except the order of the euler angles ( x and z are swapped ).
 def rotationMatrixToEulerAngles(R) :
  
     assert(isRotationMatrix(R))
@@ -54,11 +53,11 @@ def rotationMatrixToEulerAngles(R) :
         x = math.atan2(-R[1,2], R[1,1])
         y = math.atan2(-R[2,0], sy)
         z = 0
- 
+
     return np.array([x, y, z])
 
-def detect_aruco(cap=None, save=None, visualize=False):
-
+def detect_aruco(cap=None, save=None, visualize=True):
+    starttimearuco = time.time()
     def cleanup_cap():
         pass
     if cap is None:
@@ -66,6 +65,8 @@ def detect_aruco(cap=None, save=None, visualize=False):
         cleanup_cap = lambda : cap.release()
 
     ret, frame = cap.read()
+    timenow = time.time()
+    print("time1", timenow-starttimearuco)
  
     frame = cv2.flip(frame,-1)
     # width = int(frame.shape[1] * scale)
@@ -79,12 +80,14 @@ def detect_aruco(cap=None, save=None, visualize=False):
     parameters = aruco.DetectorParameters_create()
     markerCorners, markerIds, rejectedCandidates= aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
     
+    timenow = time.time()
+    print("time2", timenow-starttimearuco)
     # aruco_dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
     # parameters =  cv2.aruco.DetectorParameters()
     # detector = cv2.aruco.ArucoDetector(aruco_dictionary, parameters)
     # markerCorners, markerIds, rejectedCandidates= detector.detectMarkers(gray)
    
-    frame = aruco.drawDetectedMarkers( frame, markerCorners, markerIds )
+    
     Ts = []
     ids = []
     if markerIds is not None :
@@ -98,6 +101,7 @@ def detect_aruco(cap=None, save=None, visualize=False):
             # print("Tvec",tvec)
             ids.append(markerIds[i][0])
             if save or visualize:
+                frame = aruco.drawDetectedMarkers( frame, markerCorners, markerIds )
                 frame = cv2.drawFrameAxes(frame, camera_mtx, distortion_param, rvec, tvec,length = 100, thickness=6)
         
             rotation_mtx, jacobian = cv2.Rodrigues(rvec)
@@ -113,8 +117,8 @@ def detect_aruco(cap=None, save=None, visualize=False):
     if visualize:
         cv2.imshow("camera view", frame)
 
-    # Multiple ids in 1D list
-    # Mutiple Ts, select first marker 2d array by Ts[0]
+    timenow = time.time()
+    print("time3", timenow-starttimearuco)
     return Ts, ids, frame
 
 def get_camera():
@@ -143,7 +147,7 @@ def publisher():
     print("Picam cap status",cap)
     
     while not rospy.is_shutdown():
-        # starttime = time.time()
+        starttime = time.time()
         Ts, ids, framnum = detect_aruco(cap)
         
         print("IDs:   ",ids)
@@ -171,9 +175,9 @@ def publisher():
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'): break
-        # runtime = time.time() - starttime
+        runtime = time.time() - starttime
         # alltime.append(runtime)
-        # print('run time %.3fs'%(runtime))
+        print('run time %.3fs'%(runtime))
         # print("datapoints num: ", len(alltime))
         # alltimearray = np.array(alltime)
         # print("max: ",np.max(alltimearray))
