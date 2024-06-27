@@ -66,7 +66,7 @@ def detect_aruco(cap=None, save=None, visualize=False):
 
     ret, frame = cap.read()
     timenow = time.time()
-    print("time1", timenow-starttimearuco)
+    # print("time1", timenow-starttimearuco)
  
     # frame = cv2.flip(frame,-1)
     # width = int(frame.shape[1] * scale)
@@ -81,7 +81,7 @@ def detect_aruco(cap=None, save=None, visualize=False):
     markerCorners, markerIds, rejectedCandidates= aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
     
     timenow = time.time()
-    print("time2", timenow-starttimearuco)
+    # print("time2", timenow-starttimearuco)
     # aruco_dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
     # parameters =  cv2.aruco.DetectorParameters()
     # detector = cv2.aruco.ArucoDetector(aruco_dictionary, parameters)
@@ -131,7 +131,7 @@ def get_camera():
     cap.set(4, img_height)
     # cap.set(5, frame_rate)
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+    # cap.set(cv2.CAP_PROP_BUFFERSIZE, 4)
     time.sleep(3)
     return cap
 
@@ -150,6 +150,7 @@ def publisher():
     while not rospy.is_shutdown():
         starttime = time.time()
         Ts, ids, framnum = detect_aruco(cap)
+        print("TIMESTAMP1 ",time.time()-starttime)
         
         print("IDs:   ",ids)
         # print("TS is:   ",Ts)
@@ -177,14 +178,20 @@ def publisher():
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'): break
         runtime = time.time() - starttime
-        # alltime.append(runtime)
+
+        alltime.append(runtime)
         print('run time %.3fs'%(runtime))
-        # print("datapoints num: ", len(alltime))
-        # alltimearray = np.array(alltime)
-        # print("max: ",np.max(alltimearray))
-        # print("min: ",np.min(alltimearray))
-        # print("std: ",np.std(alltimearray))
-        # print("mean: ",np.mean(alltimearray))
+        print("datapoints num: ", len(alltime))
+        alltimearray = np.array(alltime)
+        print("max: ",np.max(alltimearray))
+        print("min: ",np.min(alltimearray))
+        print("std: ",np.std(alltimearray))
+        print("mean: ",np.mean(alltimearray))
+
+        if len(alltime) >= 100:
+            # with open("output.txt", "w") as file:
+            #     file.write(alltime)
+            break
         rate.sleep()
 
     cv2.destroyAllWindows()
@@ -201,10 +208,10 @@ if __name__ == '__main__':
 
     print("DONE PICAM")
 
-    # print(alltime)
-    # print("datapoints num: ", len(alltime))
-    # alltimearray = np.array(alltime)
-    # print("max: ",np.max(alltimearray))
-    # print("min: ",np.min(alltimearray))
-    # print("std: ",np.std(alltimearray))
-    # print("mean: ",np.mean(alltimearray))
+    print(alltime)
+    print("datapoints num: ", len(alltime))
+    alltimearray = np.array(alltime)
+    print("max: ",np.max(alltimearray))
+    print("min: ",np.min(alltimearray))
+    print("std: ",np.std(alltimearray))
+    print("mean: ",np.mean(alltimearray))

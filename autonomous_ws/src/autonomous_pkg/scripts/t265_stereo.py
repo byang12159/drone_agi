@@ -99,6 +99,7 @@ try:
     undistort_rectify = {"left"  : (lm1, lm2),
                         "right" : (rm1, rm2)}
 
+    print("lm1:",lm1)
     print(undistort_rectify)
     mode = "stack"
 
