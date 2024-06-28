@@ -1,9 +1,16 @@
 import numpy as np
+import scipy
 import time
+from numpy import cos, sin
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import json
 from particle_filter import ParticleFilter
-from prediction import Prediction
+from scipy.integrate import odeint
+import os
+from pathlib import Path
+from scipy.spatial.transform import Rotation
+import copy
 
 class RunParticle():
     def __init__(self,starting_state, width=320, height=320, fov=50, batch_size=32):
@@ -19,7 +26,7 @@ class RunParticle():
         self.min_bounds = {'px':-0.5,'py':-0.5,'pz':-0.5,'rz':-2.5,'ry':-179.0,'rx':-2.5,'pVx':-0.5,'pVy':-0.5,'pVz':-0.5,'Ax':-0.5,'Ay':-0.5,'Az':-0.5}
         self.max_bounds = {'px':0.5,'py':0.5,'pz':0.5,'rz':2.5,'ry':179.0,'rx':2.5,      'pVx':0.5, 'pVy':0.5, 'pVz':0.5, 'Ax':0.5,'Ay':0.5,'Az':0.5}
 
-        self.num_particles = 1800
+        self.num_particles = 900
         
         self.state_est_history = []
 
@@ -188,176 +195,35 @@ class RunParticle():
         # self.filter.update_vel(current_pose,timestep)
         # Update velocity with newest observation:
         # self.filter.update_vel(particles_position_before_update,current_pose,position_est, lastpose,time_step)
+        variance = self.filter.compute_var()
 
-        return state_est
+        return state_est, variance
     
 #######################################################################################################################################
 if __name__ == "__main__":
 
-    # Generate data 
-    t = np.arange(0,5,0.01)
-    x = np.zeros_like(t)
-    y = np.sin(t*2*np.pi/5)
-    z = np.ones_like(t)
+    simple_trajx = np.arange(0,100,1).reshape(100,1)
+    simple_traj = np.hstack((simple_trajx, np.ones_like(simple_trajx), np.zeros_like(simple_trajx)))
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x, y, z)
+    mcl = RunParticle(starting_state=simple_traj[0])    
 
-    ax.set_xlabel('X axis')
-    ax.set_ylabel('Y axis')
-    ax.set_zlabel('Z axis')
-    plt.show()
-
-    # 2d Plot
-    plt.plot(t, y, label='sin(t)')
-    # Add labels and title
-    plt.xlabel('X axis')
-    plt.ylabel('Y axis')
-    plt.title('Basic Line Plot')
-    plt.legend()
-    plt.show()
-
-    simple_traj = np.hstack((x.reshape(x.shape[0],1), y.reshape(y.shape[0],1), z.reshape(z.shape[0],1)))
+    start_time = time.time()
+    
+    particle_state_est=[[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0]]
+    variance_history = []
+    PF_history = [np.array(mcl.filter.particles)]
+    prediction_history = []
     
     # Assume constant time step between trajectory stepping
-    timestep = 0.01
+    time_step = 1
 
-    mcl = RunParticle(starting_state=simple_traj[0])   
-    pred = Prediction(num_trajectory = 50, num_steps = 15, accel_range = 5, follow_depth=2, timestep = timestep)
-
-    pose_est_history_x = []
-    pose_est_history_y = []
-    pose_est_history_z = []
-    velocity_est_history_x = []
-    velocity_est_history_y =[]
-    velocity_est_history_z = []
-    PF_history_x = []
-    PF_history_y = []
-    PF_history_z = []
-    PF_history_x.append(np.array(mcl.filter.particles['position'][:,0]).flatten())
-    PF_history_y.append(np.array(mcl.filter.particles['position'][:,1]).flatten())
-    PF_history_z.append(np.array(mcl.filter.particles['position'][:,2]).flatten())
-
-    velocity_GT = []
-    accel_GT = []
-
-    global_state_history_L=[]
-    global_state_history_C=[]
-    particle_state_est=[[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0]]
-
-    
-    for iter in range(1, x.shape[0]):
-        lead_pose = simple_traj[iter]
-        state_est = mcl.rgb_run(current_pose=lead_pose, past_states = particle_state_est, time_step=timestep)   
+    for iter in range(1,100):
+        
+        state_est, variance = mcl.rgb_run(current_pose= simple_traj[iter], past_states=particle_state_est, time_step=time_step )   
 
         particle_state_est.append(state_est)
-
-        predict_trajectory, rectangles = pred.prediction(initial_state=state_est)
-
-    
-    # Post Processing
-    particle_state_est = np.array(particle_state_est)
-    times = np.arange(0,particle_state_est.shape[0]-2)*timestep
-
-    fig, (posx,posy,posz) = plt.subplots(3, 1, figsize=(14, 10))
-    posx.plot(times, particle_state_est[2:,0], label = "Filter Pos x")
-    # posx.plot(times, global_state_history_L[:,0], label = "GT Pos x")
-    posx.legend()
-    posy.plot(times, particle_state_est[2:,1], label = "Filter Pos y")    
-    posy.plot(times, simple_traj[1:,1], label = "GT Pos y")
-    posy.legend()
-    posz.plot(times, particle_state_est[2:,2], label = "Filter Pos z")
-    # posz.plot(times, global_state_history_L[:,2], label = "GT Pos z")
-    posz.legend()
-
-    # fig, (velx,vely,velz) = plt.subplots(3, 1, figsize=(14, 10))
-    # velx.plot(times, particle_state_est[2:,3], label = "Filter Vel x")
-    # # velx.plot(times, velocity_GT[:,0], label = "GT Vel x")
-    # # velx.set_ylim(-1,2)
-    # velx.legend()
-    # vely.plot(times, particle_state_est[2:,4], label = "Filter Vel y")    
-    # # vely.plot(times, velocity_GT[:,1], label = "GT Vel y")
-    # vely.legend()
-    # velz.plot(times, particle_state_est[2:,5], label = "Filter Vel z")
-    # # velz.plot(times, velocity_GT[:,2], label = "GT Vel z")
-    # velz.legend()
-
-    # fig, (posx,velx,accelx) = plt.subplots(3, 1, figsize=(14, 10))
-    # posx.plot(times, particle_state_est[2:,0], label = "Filter Accel x")
-    # # posx.plot(times, global_state_history_L[:,0], label = "GT Accel x")
-    # posx.legend()
-    # velx.plot(times, particle_state_est[2:,3], label = "Filter Accel y")
-    # # velx.plot(times, velocity_GT[:,0], label = "GT Accel y")
-    # velx.legend()
-    # accelx.plot(times, particle_state_est[2:,6], label = "Filter Accel z")    
-    # # accelx.plot(times, accel_GT[:,0], label = "GT Accel z")
-    # accelx.legend()
-
-    plt.show()
-
-
-
-
-
-
-
-
-
-    # # Initialize mcl Position
-    # est_states = np.zeros((len(mcl.ref_traj) ,6)) # x y z vx vy vz
-    # gt_states  = np.zeros((len(mcl.ref_traj) ,16))
-    # iteration_count = np.arange(0,len(mcl.ref_traj) , 1, dtype=int)
-
-    # start_time = time.time()
-
-    # pose_est_history_x = []
-    # pose_est_history_y = []
-    # pose_est_history_z = []
-    # velocity_est_history_x = []
-    # velocity_est_history_y =[]
-    # velocity_est_history_z = []
-    # PF_history_x = []
-    # PF_history_y = []
-    # PF_history_z = []
-
-    # # cam_init = np.array([[0,0,0,mcl.ref_traj[0][0]],
-    # #                      [0,0,0,mcl.ref_traj[0][1]],
-    # #                      [0,0,0,mcl.ref_traj[0][2]]])
-    
-    # # cam_init_pos = cam_init[0:3, 3]
-    # # cam_rpy = R.from_matrix(cam_init[0:3, 0:3]).as_euler('xyz')
-    # # drone_init = np.array([
-    # #     cam_init_pos[0], 0, cam_rpy[0]-np.pi/2, 0, 
-    # #     cam_init_pos[1], 0, cam_rpy[1], 0, 
-    # #     cam_init_pos[2], 0, cam_rpy[2]+np.pi/2, 0, 
-    # # ])
-
-    # # ref_init = np.array([0,1])
-
-    # # state = drone_init 
-    # # ref = ref_init 
-    # # traj = np.concatenate(([0], drone_init, drone_init, ref_init)).reshape((1,-1))
-    
-
-    # # Assume constant time step between trajectory stepping
-    # time_step = 1
-
-    # last_pos = [0,0,0]
-    # print(simple_traj.shape)
-    # for iter in range(1,100):
-        
-    #     state_est, oldparticlepos = mcl.rgb_run(current_pose= simple_traj[iter], )   
-    #     pose_est_history_x.append(state_est[0])
-    #     pose_est_history_y.append(state_est[1])
-    #     pose_est_history_z.append(state_est[2])
-    #     velocity_est_history_x.append(state_est[3])
-    #     velocity_est_history_y.append(state_est[4])
-    #     velocity_est_history_z.append(state_est[5])
-
-    #     PF_history_x.append(np.array(mcl.filter.particles['position'][:,0]).flatten())
-    #     PF_history_y.append(np.array(mcl.filter.particles['position'][:,1]).flatten())
-    #     PF_history_z.append(np.array(mcl.filter.particles['position'][:,2]).flatten())
+        variance_history.append(variance)
+        PF_history.append(np.array(mcl.filter.particles))
     
     # PF_history_x = np.array(PF_history_x)
     # PF_history_y = np.array(PF_history_y)
@@ -374,62 +240,58 @@ if __name__ == "__main__":
     # vel.legend()
     # plt.show()
 
-    # fig = plt.figure(1)
+    particle_state_est = np.array(particle_state_est[2:])
+    fig = plt.figure(1)
+    ax = fig.add_subplot(111, projection='3d')
+    t = np.linspace(0, 32, 1000)
+    ax.plot(simple_traj[:,0],simple_traj[:,1],simple_traj[:,2], color = 'b')
+    ax.plot(particle_state_est[:,0], particle_state_est[:,1], particle_state_est[:,2], color = 'g')
+    plt.show()
+
+    # SIM_TIME = 40.0 
+    # DT = SIM_TIME/len(pose_est_history_x)  # time tick [s]
+    # print("DT is ",DT)
+    # time = 0.0
+    # show_animation = False
+    # count = 0
+
+    # # Initialize a 3D plot
+    # fig = plt.figure()
     # ax = fig.add_subplot(111, projection='3d')
-    # # ax.plot(x, y, z, color='b')
-    # t = np.linspace(0, 32, 1000)
-    # x = mcl.ref_traj[:,0]
-    # y = mcl.ref_traj[:,1]
-    # z = mcl.ref_traj[:,2]
-    # plt.figure(1)
-    # ax.plot(simple_traj[:,0],simple_traj[:,1],simple_traj[:,2], color = 'b')
-    # ax.plot(pose_est_history_x,pose_est_history_y,pose_est_history_z, color = 'g')
-    # plt.show()
 
-    # # SIM_TIME = 40.0 
-    # # DT = SIM_TIME/len(pose_est_history_x)  # time tick [s]
-    # # print("DT is ",DT)
-    # # time = 0.0
-    # # show_animation = False
-    # # count = 0
-
-    # # # Initialize a 3D plot
-    # # fig = plt.figure()
-    # # ax = fig.add_subplot(111, projection='3d')
-
-    # # # Simulation loop
-    # # while SIM_TIME >= time:
-    # #     time += DT
+    # # Simulation loop
+    # while SIM_TIME >= time:
+    #     time += DT
         
 
-    # #     if show_animation:
-    # #         ax.cla()  # Clear the current axis
+    #     if show_animation:
+    #         ax.cla()  # Clear the current axis
 
-    # #         # For stopping simulation with the esc key.
-    # #         fig.canvas.mpl_connect('key_release_event',
-    # #                             lambda event: [exit(0) if event.key == 'escape' else None])
+    #         # For stopping simulation with the esc key.
+    #         fig.canvas.mpl_connect('key_release_event',
+    #                             lambda event: [exit(0) if event.key == 'escape' else None])
 
-    # #         # Plot the trajectory up to the current count in 3D
-    # #         ax.plot(mcl.ref_traj[:count, 0], mcl.ref_traj[:count, 1], mcl.ref_traj[:count, 2], "*k")
-    # #         ax.plot(pose_est_history_x[count], pose_est_history_y[count], pose_est_history_z[count], "*r" )
-    # #         # ax.plot(PF_history_x[count],PF_history_y[count],PF_history_y[count], 'o',color='blue', alpha=0.5)
-    # #         # Additional plotting commands can be added here
+    #         # Plot the trajectory up to the current count in 3D
+    #         ax.plot(mcl.ref_traj[:count, 0], mcl.ref_traj[:count, 1], mcl.ref_traj[:count, 2], "*k")
+    #         ax.plot(pose_est_history_x[count], pose_est_history_y[count], pose_est_history_z[count], "*r" )
+    #         # ax.plot(PF_history_x[count],PF_history_y[count],PF_history_y[count], 'o',color='blue', alpha=0.5)
+    #         # Additional plotting commands can be added here
             
-    # #         ax.set_xlabel('X')
-    # #         ax.set_ylabel('Y')
-    # #         ax.set_zlabel('Z')
-    # #         ax.set_xlim(-40, 40)  # Set X-axis limits
-    # #         ax.set_ylim(-40, 40)  # Set Y-axis limits
-    # #         ax.set_zlim(-40, 40)  # Set Z-axis limits
+    #         ax.set_xlabel('X')
+    #         ax.set_ylabel('Y')
+    #         ax.set_zlabel('Z')
+    #         ax.set_xlim(-40, 40)  # Set X-axis limits
+    #         ax.set_ylim(-40, 40)  # Set Y-axis limits
+    #         ax.set_zlim(-40, 40)  # Set Z-axis limits
 
-    # #         ax.axis("equal")
-    # #         ax.set_title('3D Trajectory Animation')
-    # #         plt.grid(True)
-    # #         plt.pause(0.001)
-    # #     count += 1  # Increment count to update the trajectory being plotted
+    #         ax.axis("equal")
+    #         ax.set_title('3D Trajectory Animation')
+    #         plt.grid(True)
+    #         plt.pause(0.001)
+    #     count += 1  # Increment count to update the trajectory being plotted
 
-    # # # Show the final plot after the simulation ends
-    # # plt.show()
+    # # Show the final plot after the simulation ends
+    # plt.show()
 
 
-    # print("FINISHED CODE")
+    print("FINISHED CODE")

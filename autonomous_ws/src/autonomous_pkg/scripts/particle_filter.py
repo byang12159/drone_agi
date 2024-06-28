@@ -161,3 +161,8 @@ class ParticleFilter:
             self.particles['velocity'][i] +=0
         
         print("Finish odometry update")
+        
+    def compute_var(self):
+        variance = np.var(self.particles['position'], axis=0)
+        return variance
+    
