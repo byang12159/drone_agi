@@ -3,7 +3,7 @@ from line_profiler import LineProfiler
 import rospy
 from std_msgs.msg import Float32, String
 from geometry_msgs.msg import Point
-# import geometry_msgs.msg as geometry_msgs
+import pickle
 
 import numpy as np
 import cv2
@@ -56,7 +56,7 @@ def rotationMatrixToEulerAngles(R) :
 
     return np.array([x, y, z])
 
-def detect_aruco(cap=None, save=None, visualize=False):
+def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualize=False):
     starttimearuco = time.time()
     def cleanup_cap():
         pass
@@ -65,28 +65,14 @@ def detect_aruco(cap=None, save=None, visualize=False):
         cleanup_cap = lambda : cap.release()
 
     ret, frame = cap.read()
-    timenow = time.time()
-    # print("time1", timenow-starttimearuco)
- 
-    # frame = cv2.flip(frame,-1)
-    # width = int(frame.shape[1] * scale)
-    # height = int(frame.shape[0] * scale)
-    # dim = (width, height)
-    # frame = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
+
+    time1 = time.time() - starttimearuco
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
-    parameters = aruco.DetectorParameters_create()
     markerCorners, markerIds, rejectedCandidates= aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
     
-    timenow = time.time()
-    # print("time2", timenow-starttimearuco)
-    # aruco_dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_250)
-    # parameters =  cv2.aruco.DetectorParameters()
-    # detector = cv2.aruco.ArucoDetector(aruco_dictionary, parameters)
-    # markerCorners, markerIds, rejectedCandidates= detector.detectMarkers(gray)
-   
+    time2 = time.time() - starttimearuco
     
     Ts = []
     ids = []
@@ -117,46 +103,46 @@ def detect_aruco(cap=None, save=None, visualize=False):
     if visualize:
         cv2.imshow("camera view", frame)
 
-    timenow = time.time()
-    print("time3", timenow-starttimearuco)
-    return Ts, ids, frame
+    time3 = time.time() - starttimearuco
 
-def get_camera():
+    return Ts, ids, time1, time2, time3
+
+def get_camera(select_buffer, select_framerate, select_imgwidth,select_imgheight):
     cap = cv2.VideoCapture(0)
 
-    img_width = 640
-    img_height = 480
-    frame_rate = 60
+    img_width = select_imgwidth
+    img_height = select_imgheight
+    frame_rate = select_framerate
     cap.set(2, img_width)
     cap.set(4, img_height)
-    # cap.set(5, frame_rate)
+    cap.set(5, frame_rate)
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-    # cap.set(cv2.CAP_PROP_BUFFERSIZE, 4)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, select_buffer)
     time.sleep(3)
     return cap
 
 def release_camera(cap):
     cap.release()
 
-def publisher():
+def publisher(select_buffer, select_framerate, select_imgwidth,select_imgheight):
     rospy.init_node('picam', anonymous=True)
     pub = rospy.Publisher("/leader_waypoint", Point, queue_size=1)
     rate = rospy.Rate(40)  # 1 Hz
 
-    cap = get_camera()
+    aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
+    parameters = aruco.DetectorParameters_create()
+
+    cap = get_camera(select_buffer, select_framerate, select_imgwidth,select_imgheight)
     time.sleep(2)
     print("Picam cap status",cap)
     
+    count_detect = 0
     while not rospy.is_shutdown():
         starttime = time.time()
-        Ts, ids, framnum = detect_aruco(cap)
-        print("TIMESTAMP1 ",time.time()-starttime)
-        
-        print("IDs:   ",ids)
-        # print("TS is:   ",Ts)
+        Ts, ids, time1, time2, time3 = detect_aruco(cap, aruco_dict, parameters)
 
         if len(Ts)>0 and ids[0] == 0:
-            print(f"Translation x:{round(-Ts[0][0, 3],2)} y:{round(Ts[0][1, 3],2)} z:{round(Ts[0][2, 3],2)}")
+            # print(f"Translation x:{round(-Ts[0][0, 3],2)} y:{round(Ts[0][1, 3],2)} z:{round(Ts[0][2, 3],2)}")
 
             # Publish the message
             displacement_msg = Point()
@@ -165,33 +151,22 @@ def publisher():
             displacement_msg.z = -Ts[0][1, 3]
       
             pub.publish(displacement_msg)
-            rospy.loginfo("Aruco Detection, Published Point message: {}".format(displacement_msg))
-        # else:
-        #     # Publish the message
-        #     displacement_msg = Point()
-        #     displacement_msg.x = 0.0
-        #     displacement_msg.y = 0.0
-        #     displacement_msg.z = 0.0
-        #     pub.publish(displacement_msg)
-        #     rospy.loginfo("No Detection, Published Point message: {}".format(displacement_msg))
+            # rospy.loginfo("Aruco Detection, Published Point message: {}".format(displacement_msg))
+
+            count_detect+=1
+        
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'): break
+
         runtime = time.time() - starttime
 
-        alltime.append(runtime)
-        print('run time %.3fs'%(runtime))
-        print("datapoints num: ", len(alltime))
-        alltimearray = np.array(alltime)
-        print("max: ",np.max(alltimearray))
-        print("min: ",np.min(alltimearray))
-        print("std: ",np.std(alltimearray))
-        print("mean: ",np.mean(alltimearray))
-
-        if len(alltime) >= 100:
-            # with open("output.txt", "w") as file:
-            #     file.write(alltime)
+        data.append([select_buffer, select_framerate, select_imgwidth,select_imgheight, 
+                     runtime, time1, time2, time3, Ts, ids])
+        
+        if count_detect>= 100:
             break
+        print("Count ",count_detect)
         rate.sleep()
 
     cv2.destroyAllWindows()
@@ -201,17 +176,45 @@ def publisher():
 
 if __name__ == '__main__':
     
-    try:
-        publisher()
-    except rospy.ROSInterruptException:
-        pass
+    buffersizes = [1, 2, 3, 4]
+    framerates = [30, 65, 100]
+    imgwidths = [1280, 800, 640, 320]
+    imgheights = [800, 600, 480, 240]
 
-    print("DONE PICAM")
+    # buffersizes = [1]
+    # framerates = [30]
+    # imgwidths = [1280]
+    # imgheights = [800]
 
-    print(alltime)
-    print("datapoints num: ", len(alltime))
-    alltimearray = np.array(alltime)
-    print("max: ",np.max(alltimearray))
-    print("min: ",np.min(alltimearray))
-    print("std: ",np.std(alltimearray))
-    print("mean: ",np.mean(alltimearray))
+    total_data =[]
+
+    for b in buffersizes:
+        for f in framerates:
+            for index in range(len(imgwidths)):
+
+                data = []
+                print("starting ",b, f, imgwidths[index],imgheights[index])
+                try:
+                    publisher(b, f, imgwidths[index],imgheights[index])
+                except rospy.ROSInterruptException:
+                    pass
+
+                total_data.append(data)
+                time.sleep(3)
+
+
+    pickle_file = 'picam_data.pickle'
+
+    # Pickling the data (writing to a file)
+    with open(pickle_file, 'wb') as f:
+        pickle.dump(total_data, f)
+        print(f'Data has been pickled to {pickle_file}')
+        
+
+    # print(alltime)
+    # print("datapoints num: ", len(alltime))
+    # alltimearray = np.array(alltime)
+    # print("max: ",np.max(alltimearray))
+    # print("min: ",np.min(alltimearray))
+    # print("std: ",np.std(alltimearray))
+    # print("mean: ",np.mean(alltimearray))

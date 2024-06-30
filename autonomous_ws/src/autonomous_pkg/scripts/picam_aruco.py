@@ -56,7 +56,7 @@ def rotationMatrixToEulerAngles(R) :
 
     return np.array([x, y, z])
 
-def detect_aruco(cap=None, save=None, visualize=False):
+def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualize=True):
     starttimearuco = time.time()
     def cleanup_cap():
         pass
@@ -76,8 +76,6 @@ def detect_aruco(cap=None, save=None, visualize=False):
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
-    parameters = aruco.DetectorParameters_create()
     markerCorners, markerIds, rejectedCandidates= aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
     
     timenow = time.time()
@@ -126,10 +124,10 @@ def get_camera():
 
     img_width = 640
     img_height = 480
-    frame_rate = 60
+    frame_rate = 100
     cap.set(2, img_width)
     cap.set(4, img_height)
-    # cap.set(5, frame_rate)
+    cap.set(5, frame_rate)
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
     time.sleep(3)
@@ -143,13 +141,16 @@ def publisher():
     pub = rospy.Publisher("/leader_waypoint", Point, queue_size=1)
     rate = rospy.Rate(40)  # 1 Hz
 
+    aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
+    parameters = aruco.DetectorParameters_create()
+
     cap = get_camera()
     time.sleep(2)
     print("Picam cap status",cap)
     
     while not rospy.is_shutdown():
         starttime = time.time()
-        Ts, ids, framnum = detect_aruco(cap)
+        Ts, ids, framnum = detect_aruco(cap, aruco_dict, parameters)
         
         print("IDs:   ",ids)
         # print("TS is:   ",Ts)
@@ -165,15 +166,7 @@ def publisher():
       
             pub.publish(displacement_msg)
             rospy.loginfo("Aruco Detection, Published Point message: {}".format(displacement_msg))
-        # else:
-        #     # Publish the message
-        #     displacement_msg = Point()
-        #     displacement_msg.x = 0.0
-        #     displacement_msg.y = 0.0
-        #     displacement_msg.z = 0.0
-        #     pub.publish(displacement_msg)
-        #     rospy.loginfo("No Detection, Published Point message: {}".format(displacement_msg))
-
+        
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'): break
         runtime = time.time() - starttime
