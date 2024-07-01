@@ -110,13 +110,13 @@ def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualiz
 def get_camera(select_buffer, select_framerate, select_imgwidth,select_imgheight):
     cap = cv2.VideoCapture(0)
 
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
     img_width = select_imgwidth
     img_height = select_imgheight
     frame_rate = select_framerate
     cap.set(2, img_width)
     cap.set(4, img_height)
     cap.set(5, frame_rate)
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
     cap.set(cv2.CAP_PROP_BUFFERSIZE, select_buffer)
     time.sleep(3)
     return cap
@@ -182,7 +182,7 @@ if __name__ == '__main__':
     imgheights = [800, 600, 480, 240]
 
     # buffersizes = [1]
-    # framerates = [30]
+    # framerates = [100]
     # imgwidths = [1280]
     # imgheights = [800]
 

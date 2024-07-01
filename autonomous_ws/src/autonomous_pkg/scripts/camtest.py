@@ -17,7 +17,7 @@ def main():
     cap.set(2, img_width)
     cap.set(4, img_height)
     cap.set(5, frame_rate)
-    # cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
    
     # Initialize variables to calculate FPS
     fps = 0

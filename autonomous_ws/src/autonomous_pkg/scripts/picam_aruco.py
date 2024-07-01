@@ -125,10 +125,10 @@ def get_camera():
     img_width = 640
     img_height = 480
     frame_rate = 100
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
     cap.set(2, img_width)
     cap.set(4, img_height)
     cap.set(5, frame_rate)
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
     time.sleep(3)
     return cap
