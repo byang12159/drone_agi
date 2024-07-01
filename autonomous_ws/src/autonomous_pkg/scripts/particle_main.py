@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 from scipy.spatial.transform import Rotation
 import copy
+import torch
 
 class RunParticle():
     def __init__(self,starting_state, width=320, height=320, fov=50, batch_size=32):
@@ -21,7 +22,7 @@ class RunParticle():
 
         self.format_particle_size = 0
         # bounds for particle initialization, meters + degrees
-        self.total_particle_states = 9
+        self.total_particle_states = 6
         self.filter_dimension = 3
         self.min_bounds = {'px':-0.5,'py':-0.5,'pz':-0.5,'rz':-2.5,'ry':-179.0,'rx':-2.5,'pVx':-0.5,'pVy':-0.5,'pVz':-0.5,'Ax':-0.5,'Ay':-0.5,'Az':-0.5}
         self.max_bounds = {'px':0.5,'py':0.5,'pz':0.5,'rz':2.5,'ry':179.0,'rx':2.5,      'pVx':0.5, 'pVy':0.5, 'pVz':0.5, 'Ax':0.5,'Ay':0.5,'Az':0.5}
@@ -37,19 +38,19 @@ class RunParticle():
         self.num_updates =0
         # self.control = Controller()
 
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+
         ####################### Generate Initial Particles #######################
         self.get_initial_distribution()
 
         # add initial pose estimate before 1st update step
         position_est = self.filter.compute_simple_position_average()
         velocity_est = self.filter.compute_simple_velocity_average()
-        accel_est = self.filter.compute_simple_accel_average()
-        state_est = np.concatenate((position_est, velocity_est, accel_est))
-        print("state_est",state_est)
+
+        state_est = torch.cat((position_est, velocity_est))
+        
         self.state_est_history.append(state_est)
-
-        print("state",state_est)
-
 
     def mat3d(self, x,y,z):
         # Create a 3D figure
@@ -68,18 +69,27 @@ class RunParticle():
 
     def get_initial_distribution(self):
         # get distribution of particles from user, generate np.array of (num_particles, 6)
-        self.initial_particles_noise = np.random.uniform(
-            np.array([self.min_bounds['px'], self.min_bounds['py'], self.min_bounds['pz'],self.min_bounds['pVx'], self.min_bounds['pVy'], self.min_bounds['pVz'],self.min_bounds['Ax'], self.min_bounds['Ay'], self.min_bounds['Az']]),
-            np.array([self.max_bounds['px'], self.max_bounds['py'], self.max_bounds['pz'],self.max_bounds['pVx'], self.max_bounds['pVy'], self.max_bounds['pVz'],self.max_bounds['Ax'], self.max_bounds['Ay'], self.max_bounds['Az']]),
-            size = (self.num_particles, self.total_particle_states))
         
+        min_bounds = torch.tensor([self.min_bounds['px'], self.min_bounds['py'], self.min_bounds['pz'], 
+                           self.min_bounds['pVx'], self.min_bounds['pVy'], self.min_bounds['pVz']], dtype=torch.float32)
+        max_bounds = torch.tensor([self.max_bounds['px'], self.max_bounds['py'], self.max_bounds['pz'], 
+                                self.max_bounds['pVx'], self.max_bounds['pVy'], self.max_bounds['pVz']], dtype=torch.float32)
+
+        min_bounds = min_bounds.to(self.device)
+        max_bounds = max_bounds.to(self.device)
+
+        # Generate the initial particles noise using uniform distribution
+        self.initial_particles_noise = torch.rand((self.num_particles, self.total_particle_states), device=self.device) * (max_bounds - min_bounds) + min_bounds
+                
         # Dict of position + rotation, with position as np.array(300x6)
         self.initial_particles = self.set_initial_particles()
         
+        # Initiailize particle filter class with inital particles
+        self.filter = ParticleFilter(self.initial_particles ,self.device)
+
         # # Create a 3D figure
         # fig = plt.figure()
         # ax = fig.add_subplot(projection='3d')
-
         # ax.scatter(self.initial_particles.get('position')[:,0],self.initial_particles.get('position')[:,1],self.initial_particles.get('position')[:,2],'*')
         # ax.scatter(self.inital_state[0],self.inital_state[1],self.inital_state[2],'*')
         # ax.set_xlabel('X Label')
@@ -91,90 +101,57 @@ class RunParticle():
         # # Show the plot
         # plt.show()
 
-        # self.mat3d(self.initial_particles.get('position')[:,0],self.initial_particles.get('position')[:,1],self.initial_particles.get('position')[:,2])
-
-        # Initiailize particle filter class with inital particles
-        self.filter = ParticleFilter(self.initial_particles)
-
-
     def set_initial_particles(self):
-        initial_positions =  np.zeros((self.num_particles, self.filter_dimension))
-        initial_velocities = np.zeros((self.num_particles, self.filter_dimension))
-        initial_accels = np.zeros((self.num_particles, self.filter_dimension))
+        initial_positions = torch.zeros((self.num_particles, self.filter_dimension), dtype=torch.float32, device=self.device)
+        initial_velocities = torch.zeros((self.num_particles, self.filter_dimension), dtype=torch.float32, device=self.device)
         
         for index, particle in enumerate(self.initial_particles_noise):
-            # Initialize at origin location
-            # i = self.ref_traj[0]
-            i = self.inital_state
-            x = i[0] + particle[0]
-            y = i[1] + particle[1]
-            z = i[2] + particle[2]
+            x = self.inital_state[0] + particle[0]
+            y = self.inital_state[1] + particle[1]
+            z = self.inital_state[2] + particle[2]
             Vx = particle[3]
             Vy = particle[4]
             Vz = particle[5]
-            Accelx = particle[6]
-            Accely = particle[7]
-            Accelz = particle[8]
 
-            # set positions
-            initial_positions[index,:] = [x, y, z]
-            initial_velocities[index,:] = [Vx, Vy, Vz]
-            initial_accels[index,:] = [Accelx, Accely, Accelz]
+            initial_positions[index,:] = torch.tensor([x, y, z], device='cuda')
+            initial_velocities[index,:] = torch.tensor([Vx, Vy, Vz], device='cuda')
 
-        return  {'position':initial_positions, 'velocity':initial_velocities, 'accel':initial_accels}
+        return {'position': initial_positions, 'velocity': initial_velocities}
 
 
-    def odometry_update(self,current_pose, system_time_interval ):
+    def odometry_update(self, system_time_interval):
         # Use current estimate of x,y,z,Vx,Vy,Vz and dynamics model to compute most probable system propagation
-     
-        # offset = system_time_interval*curr_state_est[3:]
-        # offset = system_time_interval*curr_vel_est
-        # coef = 0.7
-        offsets=[]
-        for i in range(self.num_particles):
-            # offset = system_time_interval*self.filter.particles['velocity'][i]
-            increment_vel = self.filter.particles['velocity'][i] + system_time_interval*self.filter.particles['accel'][i]
-            offset = system_time_interval*increment_vel
-            offsets.append(offset)
-            self.filter.particles['position'][i] += offset
-        offsets = np.array(offsets)
-        # return np.average(offsets)
-    
-    def get_loss(self, current_pose, current_vel, current_accel, particle_poses, particle_vel, particle_accel):
-        losses = []
-        # print("cur",current_pose,last_pose)
 
-        for i, particle in enumerate(particle_poses):
-            loss = np.sqrt((current_pose[0]-particle[0])**2 + (current_pose[1]-particle[1])**2 + (current_pose[2]-particle[2])**2 
-                           + 0.9*((current_vel[0]-particle_vel[i][0])**2+ + (current_vel[1]-particle_vel[i][1])**2+ + (current_vel[2]-particle_vel[i][2])**2) 
-                           + 0.7*((current_accel[0]-particle_accel[i][0])**2+ + (current_accel[1]-particle_accel[i][1])**2+ + (current_accel[2]-particle_accel[i][2])**2))
-            # loss = np.sqrt((current_pose[0]-particle[0])**2 )
-            losses.append(loss)
-                   
+        self.filter.particles['position'] += system_time_interval*self.filter.particles['velocity']
+   
+
+    
+    def get_loss(self, current_pose, current_vel, particle_poses, particle_vel):
+  
+        position_loss = torch.sqrt(torch.sum((particle_poses -current_pose) ** 2, dim=1))
+        velocity_loss = torch.sqrt(torch.sum((particle_vel   -current_vel)  ** 2, dim=1))
+
+        losses = position_loss + 0.8*velocity_loss
+
         return losses
 
-    def rgb_run(self,current_pose, past_states, time_step):
+    def rgb_run(self,current_pose, past_states1, time_step):
         start_time = time.time() 
 
-        self.odometry_update(current_pose,time_step) 
+        current_pose = torch.tensor(current_pose).to(self.device)
+        past_states1 = torch.tensor(past_states1).to(self.device)
+        
+        self.odometry_update(time_step) 
         # make copies to prevent mutations
-        particles_position_before_update = np.copy(self.filter.particles['position'])
-        particles_velocity_before_update = np.copy(self.filter.particles['velocity'])
-        particles_accel_before_update    = np.copy(self.filter.particles['accel'])
+        particles_position_before_update = self.filter.particles['position'].clone().detach()
+        particles_velocity_before_update = self.filter.particles['velocity'].clone().detach()
 
-        # velest = np.mean(particles_velocity_before_update,axis=0)
-        # acelest = np.mean(particles_accel_before_update,axis=0)
+        current_velocity  = (current_pose-past_states1[:3])/time_step
 
+        losses = self.get_loss(current_pose, current_velocity, particles_position_before_update, particles_velocity_before_update)
 
-        # current_velocity     = (np.array(current_pose)-np.array(past_states[-1][:3]))/time_step
-        # current_acceleration = (np.array(current_velocity)-np.array(past_states[-1][3:6]))/time_step
-        current_velocity     = (np.array(current_pose)-np.array(past_states[-1][:3]))/time_step
-        current_acceleration = (np.array(past_states[-1][3:6])-np.array(past_states[-2][3:6]))/time_step
-        losses = self.get_loss(current_pose, current_velocity, current_acceleration, particles_position_before_update, particles_velocity_before_update, particles_accel_before_update)
-
-        temp = 1
-        for index, particle in enumerate(particles_position_before_update):
-            self.filter.weights[index] = 1/(losses[index]+temp)
+        offset_val = 1
+        self.filter.weights = 1/(losses+offset_val)
 
         # Resample Weights
         self.filter.update()
@@ -182,8 +159,7 @@ class RunParticle():
 
         position_est = self.filter.compute_weighted_position_average()
         velocity_est = self.filter.compute_weighted_velocity_average()
-        accel_est = self.filter.compute_weighted_accel_average()
-        state_est = np.concatenate((position_est, velocity_est, accel_est))
+        state_est = torch.cat((position_est, velocity_est))
 
         self.state_est_history.append(state_est)
 
@@ -219,7 +195,7 @@ if __name__ == "__main__":
 
     for iter in range(1,100):
         
-        state_est, variance = mcl.rgb_run(current_pose= simple_traj[iter], past_states=particle_state_est, time_step=time_step )   
+        state_est, variance = mcl.rgb_run(current_pose= simple_traj[iter], past_states1=particle_state_est[-1], time_step=time_step )   
 
         particle_state_est.append(state_est)
         variance_history.append(variance)

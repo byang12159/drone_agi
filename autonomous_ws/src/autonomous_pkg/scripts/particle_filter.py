@@ -2,13 +2,15 @@ import numpy as np
 from scipy.linalg import logm,expm
 from scipy.spatial.transform import Rotation as R
 from multiprocessing import Lock
+import torch
 
 class ParticleFilter:
 
-    def __init__(self, initial_particles):
+    def __init__(self, initial_particles, device):
         self.num_particles=len(initial_particles['position'])
         self.particles = initial_particles
-        self.weights=np.ones(self.num_particles)
+        self.device = device
+        self.weights = torch.ones(self.num_particles, dtype=torch.float32, device=self.device)
         self.particle_lock = Lock()
 
     def reduce_num_particles(self, num_particles):
@@ -63,35 +65,31 @@ class ParticleFilter:
 
     def update(self):
         # use fourth power
-        self.weights = np.square(self.weights)
-        self.weights = np.square(self.weights)
+        self.weights = torch.pow(self.weights, 4)
 
         # normalize weights
-        sum_weights=np.sum(self.weights)
-        # print("pre-normalized weight sum", sum_weights)
+        sum_weights=torch.sum(self.weights)
         self.weights=self.weights / sum_weights
     
         #resample
-        choice = np.random.choice(self.num_particles, self.num_particles, p = self.weights, replace=True)
+        choice = torch.multinomial(self.weights, self.num_particles, replacement=True)
+        
         # Add some noise 
         noise_level = 0.5
         outlier_level = 1.0
         num_outliers = int(self.num_particles*0.08)
-        random_noise = np.random.uniform(-noise_level, noise_level, size=(self.num_particles-num_outliers, 3)) 
-        outlier_noise = np.random.uniform(-outlier_level, outlier_level, size=(num_outliers, 3)) 
-        total_noise = np.vstack((random_noise,outlier_noise))
+        
+        random_noise = torch.rand(self.num_particles - num_outliers, 3).to(self.device) * 2 * noise_level - noise_level
+        outlier_noise = torch.rand(num_outliers, 3).to(self.device) * 2 * outlier_level - outlier_level
+        total_noise = torch.cat((random_noise, outlier_noise), dim=0)
 
         vel_noise_level = 0.5
-        vel_noise = np.random.uniform(-vel_noise_level, vel_noise_level, size=(self.num_particles, 3)) 
+        vel_noise = torch.rand(self.num_particles, 3).to(self.device) * 2 * vel_noise_level - vel_noise_level
 
-        accel_noise_level = 0.1
-        accel_noise = np.random.uniform(-accel_noise_level, accel_noise_level, size=(self.num_particles, 3)) 
-
-        temp = {'position':np.copy(self.particles['position'])[choice, :]+total_noise, 
-                'velocity':np.copy(self.particles['velocity'])[choice,:]+vel_noise,
-                'accel':np.copy(self.particles['accel'])[choice,:]+accel_noise}
-
-        self.particles = temp
+        self.particles = {
+                        'position':(self.particles['position'].clone().detach())[choice,:] +total_noise, 
+                        'velocity':(self.particles['velocity'].clone().detach())[choice,:] +vel_noise
+                        }
 
     def update_vel(self, particle_pose, curr_obs, curr_est,last_est, timestep):
         vel_noise_level = 0.3
@@ -104,12 +102,12 @@ class ParticleFilter:
 
     def compute_simple_position_average(self):
         # Simple averaging does not use weighted average or k means.
-        avg_pose = np.average(self.particles['position'], axis=0)
+        avg_pose = torch.mean(self.particles['position'], dim=0)
         return avg_pose
     
     def compute_simple_velocity_average(self):
-        # Simple averaging does not use weighted average or k means.
-        avg_velocity = np.average(self.particles['velocity'], axis=0)
+        # Simple averaging does not use weighted average or k means. 
+        avg_velocity = torch.mean(self.particles['velocity'], dim=0)
         return avg_velocity
     
     def compute_simple_accel_average(self):
@@ -118,11 +116,14 @@ class ParticleFilter:
         return avg_accel
 
     def compute_weighted_position_average(self):
-        avg_pose = np.average(self.particles['position'], weights=self.weights, axis=0)
+        print("DEBUG")
+        print(self.particles['position'].shape, self.weights.shape, torch.sum(self.weights))
+        print("DEBUG2", torch.matmul(self.particles['position']@self.weights).shape)
+        avg_pose = torch.sum(self.particles['position']@self.weights) /torch.sum(self.weights)
         return avg_pose
     
     def compute_weighted_velocity_average(self):
-        avg_velocity = np.average(self.particles['velocity'], weights=self.weights, axis=0)
+        avg_velocity = torch.sum(self.particles['velocity']@self.weights) /self.weights.sum()
         return avg_velocity
     
     def compute_weighted_accel_average(self):
@@ -163,6 +164,6 @@ class ParticleFilter:
         print("Finish odometry update")
         
     def compute_var(self):
-        variance = np.var(self.particles['position'], axis=0)
+        variance = torch.var(self.particles['position'], dim=0)
         return variance
     

@@ -56,7 +56,7 @@ def rotationMatrixToEulerAngles(R) :
 
     return np.array([x, y, z])
 
-def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualize=True):
+def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualize=False):
     starttimearuco = time.time()
     def cleanup_cap():
         pass
@@ -125,11 +125,13 @@ def get_camera():
     img_width = 640
     img_height = 480
     frame_rate = 100
+    buffersize = 2
+
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
     cap.set(2, img_width)
     cap.set(4, img_height)
     cap.set(5, frame_rate)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, buffersize)
     time.sleep(3)
     return cap
 

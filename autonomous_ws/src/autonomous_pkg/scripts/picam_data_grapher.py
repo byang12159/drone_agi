@@ -1,8 +1,24 @@
 import pickle
+import os
+import numpy as np
 
-pickle_file = 'picam_data.pickle'
+# Get the directory where the script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
-with open(pickle_file, 'rb') as f:
+# Specify the file name
+file_name = 'picam_data.pickle'
+
+# Create the full path to the file
+file_path = os.path.join(script_dir, file_name)
+
+print(f'The full path to the file is: {file_path}')
+
+
+with open(file_path, 'rb') as f:
     loaded_data = pickle.load(f)
     print('Data has been unpickled:')
     print(len(loaded_data))
+
+for data in loaded_data:
+    data = np.array(data)
+    print("Dpone")
