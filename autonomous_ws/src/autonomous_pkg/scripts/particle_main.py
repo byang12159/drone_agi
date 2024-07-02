@@ -199,13 +199,15 @@ if __name__ == "__main__":
         
         state_est, variance = mcl.rgb_run(current_pose= simple_traj[iter], past_states1=particle_state_est[-1], time_step=time_step )   
 
-        particle_state_est.append(state_est.cpu())
+        particle_state_est.append(state_est.cpu().numpy())
         variance_history.append(variance)
         PF_history.append(np.array(mcl.filter.particles['position'].cpu()))
     
 
 
-    particle_state_est = np.array(particle_state_est[2:])
+    particle_state_est = particle_state_est[2:]
+    particle_state_est = np.array(particle_state_est)
+    
     fig = plt.figure(1)
     ax = fig.add_subplot(111, projection='3d')
     t = np.linspace(0, 32, 1000)
@@ -240,14 +242,14 @@ if __name__ == "__main__":
 
 
     # Particle Viewer
-    for i in range(len(PF_history)):
-        fig = plt.figure(1)
-        ax = fig.add_subplot(111, projection='3d')
-        t = np.linspace(0, 32, 1000)
-        ax.plot(simple_traj[:,0],simple_traj[:,1],simple_traj[:,2], color = 'b')
-        ax.scatter(particle_state_est[i,0], particle_state_est[i,1], particle_state_est[i,2], c='r', s=100)
-        ax.scatter(PF_history[i][:,0], PF_history[i][:,1], PF_history[i][:,2], c='g', alpha=0.15)
-        plt.show()
+    # for i in range(len(PF_history)):
+    #     fig = plt.figure(1)
+    #     ax = fig.add_subplot(111, projection='3d')
+    #     t = np.linspace(0, 32, 1000)
+    #     ax.plot(simple_traj[:,0],simple_traj[:,1],simple_traj[:,2], color = 'b')
+    #     ax.scatter(particle_state_est[i,0], particle_state_est[i,1], particle_state_est[i,2], c='r', s=100)
+    #     ax.scatter(PF_history[i][:,0], PF_history[i][:,1], PF_history[i][:,2], c='g', alpha=0.15)
+    #     plt.show()
 
     # SIM_TIME = 40.0 
     # DT = SIM_TIME/len(pose_est_history_x)  # time tick [s]
