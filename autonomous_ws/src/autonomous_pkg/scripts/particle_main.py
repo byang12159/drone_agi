@@ -24,8 +24,8 @@ class RunParticle():
         # bounds for particle initialization, meters + degrees
         self.total_particle_states = 6
         self.filter_dimension = 3
-        self.min_bounds = {'px':-0.5,'py':-0.5,'pz':-0.5,'rz':-2.5,'ry':-179.0,'rx':-2.5,'pVx':-0.5,'pVy':-0.5,'pVz':-0.5,'Ax':-0.5,'Ay':-0.5,'Az':-0.5}
-        self.max_bounds = {'px':0.5,'py':0.5,'pz':0.5,'rz':2.5,'ry':179.0,'rx':2.5,      'pVx':0.5, 'pVy':0.5, 'pVz':0.5, 'Ax':0.5,'Ay':0.5,'Az':0.5}
+        self.min_bounds = {'px':-0.5,'py':-0.5,'pz':-0.5,'rz':-2.5,'ry':-179.0,'rx':-2.5,'pVx':-0.3,'pVy':-0.3,'pVz':-0.3,'Ax':-0.5,'Ay':-0.5,'Az':-0.5}
+        self.max_bounds = {'px':0.5,'py':0.5,'pz':0.5,'rz':2.5,'ry':179.0,'rx':2.5,      'pVx':0.3, 'pVy':0.3, 'pVz':0.3, 'Ax':0.5,'Ay':0.5,'Az':0.5}
 
         self.num_particles = 900
         
@@ -113,8 +113,8 @@ class RunParticle():
             Vy = particle[4]
             Vz = particle[5]
 
-            initial_positions[index,:] = torch.tensor([x, y, z], device='cuda')
-            initial_velocities[index,:] = torch.tensor([Vx, Vy, Vz], device='cuda')
+            initial_positions[index,:] = torch.tensor([x, y, z], device=self.device)
+            initial_velocities[index,:] = torch.tensor([Vx, Vy, Vz], device=self.device)
 
         return {'position': initial_positions, 'velocity': initial_velocities}
 
@@ -178,7 +178,9 @@ class RunParticle():
 #######################################################################################################################################
 if __name__ == "__main__":
 
-    simple_trajx = np.arange(0,100,1).reshape(100,1)
+    simple_trajx = np.arange(0,1,0.03)
+    simple_trajx = simple_trajx.reshape(simple_trajx.shape[0],1)
+    simple_trajx = np.concatenate((np.zeros((15,1)), simple_trajx, np.ones((15,1))), axis=0)
     simple_traj = np.hstack((simple_trajx, np.ones_like(simple_trajx), np.zeros_like(simple_trajx)))
 
     mcl = RunParticle(starting_state=simple_traj[0])    
@@ -187,34 +189,21 @@ if __name__ == "__main__":
     
     particle_state_est=[[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0]]
     variance_history = []
-    PF_history = [np.array(mcl.filter.particles)]
+    PF_history = [np.array(mcl.filter.particles['position'].cpu())]
     prediction_history = []
     
     # Assume constant time step between trajectory stepping
-    time_step = 1
+    time_step = 0.03
 
-    for iter in range(1,100):
+    for iter in range(1,simple_traj.shape[0]):
         
         state_est, variance = mcl.rgb_run(current_pose= simple_traj[iter], past_states1=particle_state_est[-1], time_step=time_step )   
 
-        particle_state_est.append(state_est)
+        particle_state_est.append(state_est.cpu())
         variance_history.append(variance)
-        PF_history.append(np.array(mcl.filter.particles))
+        PF_history.append(np.array(mcl.filter.particles['position'].cpu()))
     
-    # PF_history_x = np.array(PF_history_x)
-    # PF_history_y = np.array(PF_history_y)
-    # PF_history_z = np.array(PF_history_z)
 
-    # times = np.arange(0,time_step*len(pose_est_history_x),time_step)
-    # velocity_GT = (mcl.ref_traj[1:]-mcl.ref_traj[:-1])/time_step
-
-
-    # fig, (vel) = plt.subplots(1, 1, figsize=(14, 10))
-    # vel.plot(times, velocity_GT[:len(times),0], label = "GT Vel x")
-    # vel.plot(times, velocity_GT[:len(times),1], label = "GT Vel y")
-    # vel.plot(times, velocity_GT[:len(times),2], label = "GT Vel z")
-    # vel.legend()
-    # plt.show()
 
     particle_state_est = np.array(particle_state_est[2:])
     fig = plt.figure(1)
@@ -223,6 +212,42 @@ if __name__ == "__main__":
     ax.plot(simple_traj[:,0],simple_traj[:,1],simple_traj[:,2], color = 'b')
     ax.plot(particle_state_est[:,0], particle_state_est[:,1], particle_state_est[:,2], color = 'g')
     plt.show()
+
+    times = np.arange(0,particle_state_est.shape[0]*0.03, 0.03)
+    y_min = -0.5
+    y_max = 1.5
+    fig, (posx,posy,posz,velx,vely,velz) = plt.subplots(6, 1, figsize=(16, 10))
+    posx.plot(times, particle_state_est[:,0], label = "Est Pos x")
+    posx.plot(times, simple_traj[1:,0], label = "GT Pos x")
+    posx.set_ylim(y_min, y_max)
+    posx.legend() 
+    posy.plot(times, particle_state_est[:,1], label = "Est Pos y")
+    posy.plot(times, simple_traj[1:,1], label = "GT Pos y")
+    posy.set_ylim(y_min, y_max)
+    posy.legend()
+    posz.plot(times, particle_state_est[:,2], label = "Est Pos z")
+    posz.plot(times, simple_traj[1:,2], label = "GT Pos z")
+    posz.set_ylim(y_min, y_max)
+    posz.legend()
+    velx.plot(times, particle_state_est[:,3], label = "GT Vel x")
+    velx.legend() 
+    vely.plot(times, particle_state_est[:,4], label = "GT Vel y")
+    vely.legend()
+    velz.plot(times, particle_state_est[:,5], label = "GT Vel z")
+    velz.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+    # Particle Viewer
+    for i in range(len(PF_history)):
+        fig = plt.figure(1)
+        ax = fig.add_subplot(111, projection='3d')
+        t = np.linspace(0, 32, 1000)
+        ax.plot(simple_traj[:,0],simple_traj[:,1],simple_traj[:,2], color = 'b')
+        ax.scatter(particle_state_est[i,0], particle_state_est[i,1], particle_state_est[i,2], c='r', s=100)
+        ax.scatter(PF_history[i][:,0], PF_history[i][:,1], PF_history[i][:,2], c='g', alpha=0.15)
+        plt.show()
 
     # SIM_TIME = 40.0 
     # DT = SIM_TIME/len(pose_est_history_x)  # time tick [s]
@@ -271,3 +296,4 @@ if __name__ == "__main__":
 
 
     print("FINISHED CODE")
+

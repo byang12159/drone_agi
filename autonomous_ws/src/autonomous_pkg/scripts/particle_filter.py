@@ -10,7 +10,7 @@ class ParticleFilter:
         self.num_particles=len(initial_particles['position'])
         self.particles = initial_particles
         self.device = device
-        self.weights = torch.ones(self.num_particles, dtype=torch.float32, device=self.device)
+        self.weights = torch.ones((self.num_particles,1), dtype=torch.float32, device=self.device)
         self.particle_lock = Lock()
 
     def reduce_num_particles(self, num_particles):
@@ -75,15 +75,15 @@ class ParticleFilter:
         choice = torch.multinomial(self.weights, self.num_particles, replacement=True)
         
         # Add some noise 
-        noise_level = 0.5
-        outlier_level = 1.0
+        noise_level = 0.1
+        outlier_level = 0.8
         num_outliers = int(self.num_particles*0.08)
         
         random_noise = torch.rand(self.num_particles - num_outliers, 3).to(self.device) * 2 * noise_level - noise_level
         outlier_noise = torch.rand(num_outliers, 3).to(self.device) * 2 * outlier_level - outlier_level
         total_noise = torch.cat((random_noise, outlier_noise), dim=0)
 
-        vel_noise_level = 0.5
+        vel_noise_level = 0.1
         vel_noise = torch.rand(self.num_particles, 3).to(self.device) * 2 * vel_noise_level - vel_noise_level
 
         self.particles = {
@@ -116,14 +116,11 @@ class ParticleFilter:
         return avg_accel
 
     def compute_weighted_position_average(self):
-        print("DEBUG")
-        print(self.particles['position'].shape, self.weights.shape, torch.sum(self.weights))
-        print("DEBUG2", torch.matmul(self.particles['position']@self.weights).shape)
-        avg_pose = torch.sum(self.particles['position']@self.weights) /torch.sum(self.weights)
+        avg_pose = torch.sum(self.particles['position']*self.weights.view(self.weights.shape[0],1), dim=0) /torch.sum(self.weights)
         return avg_pose
     
     def compute_weighted_velocity_average(self):
-        avg_velocity = torch.sum(self.particles['velocity']@self.weights) /self.weights.sum()
+        avg_velocity = torch.sum(self.particles['velocity']*self.weights.view(self.weights.shape[0],1), dim=0) /torch.sum(self.weights)
         return avg_velocity
     
     def compute_weighted_accel_average(self):
