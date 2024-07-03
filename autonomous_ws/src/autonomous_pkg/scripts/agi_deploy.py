@@ -35,9 +35,6 @@ class Deploy:
         self.sub_aruco = rospy.Subscriber("/leader_waypoint", geometry_msgs.Point, self.callback_target)
         self.sub_startpoint = rospy.Subscriber("/kingfisher/agiros_pilot/state", agiros_msgs.QuadState, self.callback_state)
 
-
-
-
         # Flight with vision
         # self.sub_aruco = rospy.Subscriber("/leader_waypoint", geometry_msgs.Point, self.callback_target)
         # Debugging with fake_cam publisher
@@ -58,7 +55,7 @@ class Deploy:
         
         self.pub_start = rospy.Publisher("/start_autonomy", Bool, queue_size=1)
 
-        self.pub_PF = rospy.Publisher("/state_update", geometry_msgs.Point, queue_size=1)
+        self.pub_PF = rospy.Publisher("/leader_global", geometry_msgs.Point, queue_size=1)
 
 
         self.rate = rospy.Rate(40)  #Hz
@@ -91,41 +88,27 @@ class Deploy:
         rospy.loginfo("Published PF Point message: {}".format(displacement_msg))
  
 
-
     def callback_state(self, data):
        self.current_pose = np.array([data.pose.position.x, data.pose.position.y, data.pose.position.z])
        # rospy.loginfo("Recieving State: {},{},{}".format(global_x,global_y,global_z))
       
     def configure_logging(self):
+       log_file = 'logfile_deploy2.log' 
+
        # Create a logger
        logger = logging.getLogger('rosout')
        logger.setLevel(logging.INFO)
-
-
        # Create a file handler
-       log_file = 'logfile_deploy2.log'  # Update this path
        fh = logging.FileHandler(log_file)
        fh.setLevel(logging.INFO)
-
-
        # Create a formatter and set it for the handler
        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
        fh.setFormatter(formatter)
-
-
        # Add the file handler to the logger
        logger.addHandler(fh)
 
-
-
-    def stop_threads(self):
-       self.stop_event.set()
-       self.ctrl_thread.join()
-
-
 if __name__ == '__main__':
    dep = Deploy()
-
 
    try:
        dep.main()
