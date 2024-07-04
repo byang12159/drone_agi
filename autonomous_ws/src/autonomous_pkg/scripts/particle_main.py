@@ -105,13 +105,13 @@ class RunParticle():
         initial_positions = torch.zeros((self.num_particles, self.filter_dimension), dtype=torch.float32, device=self.device)
         initial_velocities = torch.zeros((self.num_particles, self.filter_dimension), dtype=torch.float32, device=self.device)
         
-        for index, particle in enumerate(self.initial_particles_noise):
-            x = self.inital_state[0] + particle[0]
-            y = self.inital_state[1] + particle[1]
-            z = self.inital_state[2] + particle[2]
-            Vx = particle[3]
-            Vy = particle[4]
-            Vz = particle[5]
+        for index, particle_noise in enumerate(self.initial_particles_noise):
+            x = self.inital_state[0] + particle_noise[0]
+            y = self.inital_state[1] + particle_noise[1]
+            z = self.inital_state[2] + particle_noise[2]
+            Vx = particle_noise[3]
+            Vy = particle_noise[4]
+            Vz = particle_noise[5]
 
             initial_positions[index,:] = torch.tensor([x, y, z], device=self.device)
             initial_velocities[index,:] = torch.tensor([Vx, Vy, Vz], device=self.device)

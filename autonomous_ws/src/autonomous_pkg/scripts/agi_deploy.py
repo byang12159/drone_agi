@@ -18,7 +18,6 @@ class Deploy:
         self.target_pose = None
         self.current_pose = None
         self.pub = None
-        self.stop_event = threading.Event() # Create a global event that can be used to signal the loop to stop
         self.position_history = []
 
 
@@ -30,6 +29,7 @@ class Deploy:
 
 
         rospy.init_node('deploy_node', anonymous=True)
+        self.pub_start = rospy.Publisher('/start_autonomy', Bool, queue_size=1)
         self.configure_logging()
 
         self.sub_aruco = rospy.Subscriber("/leader_waypoint", geometry_msgs.Point, self.callback_target)
@@ -41,20 +41,9 @@ class Deploy:
         # self.sub_aruco = rospy.Subscriber("/fake_waypoint", geometry_msgs.Point, self.callback_target)
 
 
-        quad_namespace = "kingfisher"
 
-
-        # self.pub_pos = rospy.Publisher(quad_namespace+"/agiros_pilot/go_to_pose",
-        #                     geometry_msgs.PoseStamped,
-        #                     queue_size=1)
-
-
-        self.pub = rospy.Publisher(quad_namespace+"/agiros_pilot/velocity_command",
-                        geometry_msgs.TwistStamped,
-                        queue_size=1)
         
-        self.pub_start = rospy.Publisher("/start_autonomy", Bool, queue_size=1)
-
+     
         self.pub_PF = rospy.Publisher("/leader_global", geometry_msgs.Point, queue_size=1)
 
 
@@ -62,20 +51,21 @@ class Deploy:
 
 
     def main(self):
-       rospy.loginfo("Experiment: {}".format(self.time_start))
-       print("Ready for Tracking ......")
+        rospy.loginfo("Experiment: {}".format(self.time_start))
+        print("Ready for Tracking ......")
 
 
-       for j in range(3):
+        for j in range(5):
            self.pub_start.publish(True)
-       self.pub_start.unregister()
+        print("finished publishing start signal")
+        # self.pub_start.unregister()
 
 
-       while not rospy.is_shutdown():
-           # Process callbacks and wait for messages
-           rospy.spin()
-           # # Sleep to control loop rate
-           self.rate.sleep()
+        while not rospy.is_shutdown():
+            # Process callbacks and wait for messages
+            rospy.spin()
+            # # Sleep to control loop rate
+            self.rate.sleep()
 
     def callback_target(self, data):
         self.target_pose = np.array([data.x+self.current_pose[0], data.y+self.current_pose[1], data.z+self.current_pose[2]])
@@ -108,22 +98,22 @@ class Deploy:
        logger.addHandler(fh)
 
 if __name__ == '__main__':
-   dep = Deploy()
+    dep = Deploy()
 
-   try:
-       dep.main()
-   except rospy.ROSInterruptException:
-           rospy.loginfo("ROSInterruptException caught")
-   finally:
-       rospy.loginfo("EXITING Main")
-       with open("Fruits.pkl", "wb") as filehandler:
-           pickle.dump(dep.position_history, filehandler)
-       rospy.loginfo("Finished Script")
+    try:
+        dep.main()
+    except rospy.ROSInterruptException:
+            rospy.loginfo("ROSInterruptException caught")
+    finally:
+        rospy.loginfo("EXITING Main")
+        with open("Fruits.pkl", "wb") as filehandler:
+            pickle.dump(dep.position_history, filehandler)
+        rospy.loginfo("Finished Script")
 
 
-       runtimes = np.array(dep.time_record)
-       print("datapoints num: ", runtimes.shape)
-       print("max: ",np.max(runtimes))
-       print("min: ",np.min(runtimes))
-       print("std: ",np.std(runtimes))
-       print("mean: ",np.mean(runtimes))
+        runtimes = np.array(dep.time_record)
+        print("datapoints num: ", runtimes.shape)
+        print("max: ",np.max(runtimes))
+        print("min: ",np.min(runtimes))
+        print("std: ",np.std(runtimes))
+        print("mean: ",np.mean(runtimes))
