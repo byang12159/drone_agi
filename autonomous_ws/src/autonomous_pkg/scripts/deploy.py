@@ -10,21 +10,23 @@ import numpy as np
 import numpy.linalg as la
 
 current_pose = None
+end_deploy = False
+target_vicon_point = np.array([1.5, 2.3, 1.3])
 
 def callback_state(data):
     global current_pose
     current_pose = np.array([data.pose.position.x, data.pose.position.y, data.pose.position.z])
 
 def vicon_callback(data):
+    global current_pose, end_deploy, target_vicon_point
 
-    global current_pose
-
-    target_vicon_point = np.array([1.5, 2.3, 1.3])
     current_vicon_point = np.array([data.data[0],data.data[1],data.data[2]])
 
     displacement = target_vicon_point-current_vicon_point
-    # if la.norm(displacement)<0.1:
-    #     bre
+    if la.norm(displacement)<0.1:
+        end_deploy = True
+        return
+    
     to_move = current_pose+displacement
 
     target = geometry_msgs.PoseStamped()
@@ -45,7 +47,6 @@ def vicon_callback(data):
 
 if __name__ == '__main__':
     try:
-        
         rospy.init_node('deploy_node', anonymous=True)
         rate = rospy.Rate(10)#Hz
 
@@ -58,8 +59,10 @@ if __name__ == '__main__':
                             geometry_msgs.PoseStamped, 
                             queue_size=1)
         
-        while not rospy.is_shutdown():
+        while not rospy.is_shutdown() and end_deploy==False:
             rate.sleep()
 
     except rospy.ROSInterruptException:
         pass
+
+    print("Finished moving to initial position")

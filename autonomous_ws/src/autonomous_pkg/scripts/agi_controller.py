@@ -40,15 +40,7 @@ class PID_Controller:
         self.ctrl_dt = 0.01
         self.rate = rospy.Rate(100)  # Hz
 
-        quad_namespace = "kingfisher"
-
-
-        # self.pub_pos = rospy.Publisher(quad_namespace+"/agiros_pilot/go_to_pose",
-        #                     geometry_msgs.PoseStamped,
-        #                     queue_size=1)
-
-
-        self.pub = rospy.Publisher(quad_namespace+"/agiros_pilot/velocity_command",
+        self.pub = rospy.Publisher("/kingfisher/agiros_pilot/velocity_command",
                         geometry_msgs.TwistStamped,
                         queue_size=1)
         
@@ -63,18 +55,14 @@ class PID_Controller:
         # print("Recieved")
         # rospy.Subscriber('/leader_global',Point, self.callback,queue_size=1)
 
-        # print("watiign for PF")
-        # rospy.wait_for_message('/PF_output', Point)
-        # print("recieved PF")
-        # rospy.Subscriber('/PF_output',Point, self.callback,queue_size=1)
-
         sub_startpoint = rospy.Subscriber("/kingfisher/agiros_pilot/state", agiros_msgs.QuadState, self.callback_state, queue_size=1)
         sub_detection_bool = rospy.Subscriber('/aruco_detection',Bool, self.callback_detection_bool,queue_size=1)
-        sub_PF = rospy.Subscriber('/PF_output',Point, self.callback_PF,queue_size=1)
+        sub_PF = rospy.Subscriber('/prediction_output',Point, self.callback_PredictionF,queue_size=1)
+
         signal.signal(signal.SIGINT, self.signal_handler)
 
         while target_pose is None or current_pose is None:
-            rospy.sleep(0.1)  # Let the state_current be updated
+            rospy.sleep(0.1) 
 
     def signal_handler(self, sig, frame):
         rospy.loginfo("Ctrl+C pressed. Exiting...")
@@ -94,14 +82,15 @@ class PID_Controller:
         global prediction_on, target_pose, current_pose, new_message_received, prediction_count, state_est
         if data.data:
             prediction_on = False
+            prediction_count = 1
         else:
             prediction_on = True
+            prediction_count +=1
             
-    def callback_PF(self, data):
+    def callback_Prediction(self, data):
         global prediction_on, target_pose, current_pose, new_message_received, prediction_count, state_est
-        
+        new_message_received = True
         target_pose = np.array([prediction_count*0.01*data.x+current_pose[0], prediction_count*0.01*data.y+current_pose[1], prediction_count*0.01*data.z+current_pose[2]])
-        prediction_count +=1
     
     def PI_loop(self,):
         global new_message_received, target_pose, current_pose, prediction_on
@@ -140,7 +129,7 @@ class PID_Controller:
             # Send velocity commands to the quadcopter
             # print("cmd", velocity_command)
             vel_cmd = geometry_msgs.TwistStamped()
-            vel_cmd.twist.linear = Vector3(0.0, velocity_command[1], 0.0)
+            vel_cmd.twist.linear = Vector3(0.0, velocity_command[1], velocity_command[2])
             vel_cmd.twist.angular = Vector3(0.0, 0.0, 0.0)
             self.pub.publish(vel_cmd)
             # rospy.loginfo("Publishing VelY to Ctrl: {}, Current state :{}, timestamp: {}".format(velocity_command[1], current_pose, time.time()))
@@ -148,7 +137,7 @@ class PID_Controller:
             # Update previous error
             previous_error = position_error
             print("runtime: ",time.time()-starttime)
-            if new_message_received or prediction_on:# or np.array_equal(active_target_pose, target_pose)==False:
+            if new_message_received:# or np.array_equal(active_target_pose, target_pose)==False:
                 break
 
             self.rate.sleep()  
