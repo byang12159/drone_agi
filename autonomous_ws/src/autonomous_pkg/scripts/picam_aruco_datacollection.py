@@ -22,7 +22,7 @@ camera_mtx = camera_mtx * scale
 
 distortion_param = np.array([0.04203676, -0.11190902, 0.00080842, 0.00151827, 0.14878741])
 
-marker_size = 53.5 #mm
+marker_size = 118 #mm
 
 alltime = []
 
@@ -109,22 +109,20 @@ def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualiz
 
 def get_camera(select_buffer, select_framerate, select_imgwidth,select_imgheight):
     cap = cv2.VideoCapture(0)
-
+    
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-    img_width = select_imgwidth
-    img_height = select_imgheight
-    frame_rate = select_framerate
-    cap.set(2, img_width)
-    cap.set(4, img_height)
-    cap.set(5, frame_rate)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, select_buffer)
-    time.sleep(3)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_FPS, 100) 
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+    cv2.waitKey(500)
+
     return cap
 
 def release_camera(cap):
     cap.release()
 
-def publisher(select_buffer, select_framerate, select_imgwidth,select_imgheight):
+def publisher(select_buffer, select_framerate, select_imgwidth,select_imgheight, filename):
     rospy.init_node('picam', anonymous=True)
     pub = rospy.Publisher("/leader_waypoint", Point, queue_size=1)
     rate = rospy.Rate(40)  # 1 Hz
@@ -165,6 +163,8 @@ def publisher(select_buffer, select_framerate, select_imgwidth,select_imgheight)
                      runtime, time1, time2, time3, Ts, ids])
         
         if count_detect>= 100:
+            ret, frame = cap.read()
+            cv2.imwrite("image/{}.jpg".format(filename), frame)
             break
         print("Count ",count_detect)
         rate.sleep()
@@ -176,17 +176,20 @@ def publisher(select_buffer, select_framerate, select_imgwidth,select_imgheight)
 
 if __name__ == '__main__':
     
-    buffersizes = [1, 2, 3, 4]
-    framerates = [30, 65, 100]
-    imgwidths = [1280, 800, 640, 320]
-    imgheights = [800, 600, 480, 240]
+    # buffersizes = [1, 2, 3, 4]
+    # framerates = [30, 65, 100]
+    # imgwidths = [1280, 800, 640, 320]
+    # imgheights = [800, 600, 480, 240]
 
-    # buffersizes = [1]
-    # framerates = [100]
-    # imgwidths = [1280]
-    # imgheights = [800]
+    buffersizes = [2]
+    framerates = [100]
+    imgwidths = [640]
+    imgheights = [480]
 
     total_data =[]
+
+    distance = '6'
+    pickle_file = 'picam_data_640480_dist{}.pickle'.format(distance)
 
     for b in buffersizes:
         for f in framerates:
@@ -195,7 +198,7 @@ if __name__ == '__main__':
                 data = []
                 print("starting ",b, f, imgwidths[index],imgheights[index])
                 try:
-                    publisher(b, f, imgwidths[index],imgheights[index])
+                    publisher(b, f, imgwidths[index],imgheights[index], pickle_file)
                 except rospy.ROSInterruptException:
                     pass
 
@@ -203,7 +206,7 @@ if __name__ == '__main__':
                 time.sleep(3)
 
 
-    pickle_file = 'picam_data.pickle'
+
 
     # Pickling the data (writing to a file)
     with open(pickle_file, 'wb') as f:

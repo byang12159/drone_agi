@@ -8,6 +8,7 @@ import geometry_msgs.msg as geometry_msgs
 import agiros_msgs.msg as agiros_msgs
 import numpy as np
 from geometry_msgs.msg import TwistStamped, Twist, Vector3, Point
+from rospy.exceptions import ROSInterruptException
 import threading
 import numpy.linalg as la
 import pickle
@@ -32,23 +33,36 @@ class Deploy:
         self.pub_start = rospy.Publisher('/start_autonomy', Bool, queue_size=1)
         self.configure_logging()
 
-        self.sub_aruco = rospy.Subscriber("/leader_waypoint", geometry_msgs.Point, self.callback_target)
+        # self.sub_aruco = rospy.Subscriber("/leader_waypoint", geometry_msgs.Point, self.callback_target)
         self.sub_startpoint = rospy.Subscriber("/kingfisher/agiros_pilot/state", agiros_msgs.QuadState, self.callback_state)
 
-        # Flight with vision
-        # self.sub_aruco = rospy.Subscriber("/leader_waypoint", geometry_msgs.Point, self.callback_target)
+ 
         # Debugging with fake_cam publisher
-        # self.sub_aruco = rospy.Subscriber("/fake_waypoint", geometry_msgs.Point, self.callback_target)
+        self.sub_aruco = rospy.Subscriber("/fake_waypoint", geometry_msgs.Point, self.callback_target)
 
+        # self.nodes_to_monitor = ['/controller_node', '/particlefilter']  # List of nodes to monitor
+        # self.shutdown_topic = '/shutdown_all'  # Custom topic for shutdown command
+        # self.shutdown_pub = rospy.Publisher(self.shutdown_topic, String, queue_size=10)
 
-
-        
+        # # Subscriber to monitor node statuses
+        # for node in self.nodes_to_monitor:
+        #     rospy.Subscriber(node + '/status', String, self.node_status_callback)
      
         self.pub_PF = rospy.Publisher("/leader_global", geometry_msgs.Point, queue_size=1)
 
 
         self.rate = rospy.Rate(40)  #Hz
 
+    # def node_status_callback(self, msg):
+    #     # Example: if status message indicates node has shutdown, initiate shutdown process
+    #     if msg.data == 'shutdown':
+    #         rospy.loginfo("Node %s has shut down. Initiating shutdown of all nodes.", msg._connection_header['topic'])
+    #         self.shutdown_all_nodes()
+
+    # def shutdown_all_nodes(self):
+    #     # Publish shutdown command to all nodes
+    #     self.shutdown_pub.publish(String("shutdown"))
+    #     rospy.loginfo("Shutdown command issued to all nodes.")
 
     def main(self):
         rospy.loginfo("Experiment: {}".format(self.time_start))

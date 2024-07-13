@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <launch>
 	<node name="leader_waypoint" pkg="autonomous_pkg" type="picam_aruco.py" />
-	<!-- <node name="particlefilter" pkg="autonomous_pkg" type="agi_particle_filter.py" /> -->
+	<!-- <node name="particlefilter" pkg="autonomous_pkg" type="agi_particle_filter.py" />
+	<node name="controller_node" pkg="autonomous_pkg" type="agi_controller.py" /> -->
 </launch>

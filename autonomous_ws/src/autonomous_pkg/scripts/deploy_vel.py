@@ -68,9 +68,9 @@ class Deploy:
         sub_startpoint = rospy.Subscriber("/kingfisher/agiros_pilot/state", agiros_msgs.QuadState, self.callback_state)
 
         # Flight with vision
-        sub_aruco = rospy.Subscriber("/leader_waypoint", geometry_msgs.Point, self.callback_target)
+        # sub_aruco = rospy.Subscriber("/leader_waypoint", geometry_msgs.Point, self.callback_target)
         # Debugging with fake_cam publisher
-        # sub_aruco = rospy.Subscriber("/fake_waypoint", geometry_msgs.Point, self.callback_target)
+        sub_aruco = rospy.Subscriber("/fake_waypoint", geometry_msgs.Point, self.callback_target)
 
         quad_namespace = "kingfisher"
 

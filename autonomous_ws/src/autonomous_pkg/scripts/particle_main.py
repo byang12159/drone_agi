@@ -12,6 +12,7 @@ from pathlib import Path
 from scipy.spatial.transform import Rotation
 import copy
 import torch
+torch.manual_seed(42)
 
 class RunParticle():
     def __init__(self,starting_state, width=320, height=320, fov=50, batch_size=32):
@@ -165,7 +166,7 @@ class RunParticle():
 
         # Update odometry step
         # print("state est:",state_est)
-        print(f"Update # {self.num_updates}, Iteration runtime: {time.time() - start_time}")
+        # print(f"Update # {self.num_updates}, Iteration runtime: {time.time() - start_time}")
 
         # # Update velocity with newest observation:
         # self.filter.update_vel(current_pose,timestep)

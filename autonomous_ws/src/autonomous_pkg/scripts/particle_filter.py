@@ -3,6 +3,7 @@ from scipy.linalg import logm,expm
 from scipy.spatial.transform import Rotation as R
 from multiprocessing import Lock
 import torch
+torch.manual_seed(42)
 
 class ParticleFilter:
 

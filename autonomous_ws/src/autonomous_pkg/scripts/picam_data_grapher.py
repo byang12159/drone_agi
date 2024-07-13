@@ -6,7 +6,7 @@ import numpy as np
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Specify the file name
-file_name = 'picam_data.pickle'
+file_name = 'picam_data_640480_dist0_5.pickle'
 
 # Create the full path to the file
 file_path = os.path.join(script_dir, file_name)

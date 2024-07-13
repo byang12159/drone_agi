@@ -26,7 +26,7 @@ def talker():
         else:
             displacement_msg = Point()
             displacement_msg.x =  0.0
-            displacement_msg.y = 0.5
+            displacement_msg.y = -0.5
             displacement_msg.z = 1.0
     
         pub.publish(displacement_msg)
