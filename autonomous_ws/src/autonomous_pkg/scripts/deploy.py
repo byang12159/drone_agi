@@ -12,6 +12,7 @@ import numpy.linalg as la
 current_pose = None
 end_deploy = False
 target_vicon_point = np.array([1.5, 2.3, 1.3])
+# target_vicon_point = np.array([3.1, 2.3, 1.3])
 
 def callback_state(data):
     global current_pose

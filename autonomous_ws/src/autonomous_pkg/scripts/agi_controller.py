@@ -3,7 +3,7 @@ import rospy
 import sys
 import logging
 import time
-from std_msgs.msg import Float32, String, Bool
+from std_msgs.msg import Float32, String, Bool,Float64MultiArray
 import geometry_msgs.msg as geometry_msgs
 import agiros_msgs.msg as agiros_msgs
 import numpy as np
@@ -16,15 +16,20 @@ import numpy.linalg as la
 
 
 target_pose = None
+target_pose_p = None
 new_message_received = False
+new_message_received_p = False
 current_pose = None
 prediction_on = False
-prediction_count = 1
+prediction_count = 50
+data_storage = []
 state_est = None
+vicon_pose = None
+
 
 class PID_Controller:
     def __init__(self): 
-        global target_pose, current_pose
+        global target_pose, current_pose, vicon_pose
       
         # Control Parameters:
         self.K_p = 1.2
@@ -49,20 +54,23 @@ class PID_Controller:
         # print("Recieved")
         # rospy.Subscriber('/fake_waypoint',Point, self.callback,queue_size=1)
         
-        rospy.Subscriber('/leader_waypoint',Point, self.callback,queue_size=1)
+        rospy.Subscriber('/leader_waypoint',Point, self.callback,queue_size=3)
 
         # rospy.wait_for_message('/leader_global', Point)
         # print("Recieved")
         # rospy.Subscriber('/leader_global',Point, self.callback,queue_size=1)
 
         sub_startpoint = rospy.Subscriber("/kingfisher/agiros_pilot/state", agiros_msgs.QuadState, self.callback_state, queue_size=1)
-        sub_detection_bool = rospy.Subscriber('/aruco_detection',Bool, self.callback_detection_bool,queue_size=1)
-        sub_PF = rospy.Subscriber('/prediction_output',Point, self.callback_PredictionF,queue_size=1)
+        sub_detection_bool = rospy.Subscriber('/aruco_detection',Bool, self.callback_detection_bool,queue_size=3)
+        sub_PF = rospy.Subscriber('/prediction_output',Point, self.callback_Prediction,queue_size=3)
+        sub_vicon = rospy.Subscriber("/vicon_estimate", Float64MultiArray, self.callback_vicon, queue_size=5)
 
         signal.signal(signal.SIGINT, self.signal_handler)
 
-        while target_pose is None or current_pose is None:
+        while target_pose is None or current_pose is None or vicon_pose is None or target_pose_p is None:
             rospy.sleep(0.1) 
+
+        self.initial_vicon_state = vicon_pose
 
     def signal_handler(self, sig, frame):
         rospy.loginfo("Ctrl+C pressed. Exiting...")
@@ -78,24 +86,33 @@ class PID_Controller:
        global current_pose
        current_pose = np.array([data.pose.position.x, data.pose.position.y, data.pose.position.z])
     
+    def callback_vicon(self, data):
+        global vicon_pose
+        vicon_pose = np.array([data.data[0], data.data[1], data.data[2]])
+
     def callback_detection_bool(self, data):
-        global prediction_on, target_pose, current_pose, new_message_received, prediction_count, state_est
+        global prediction_on,prediction_count, data_storage
         if data.data:
             prediction_on = False
-            prediction_count = 1
+            prediction_count = 50   
         else:
             prediction_on = True
             prediction_count +=1
+        data_storage.append([prediction_on,prediction_count,time.time()])
+        
             
     def callback_Prediction(self, data):
-        global prediction_on, target_pose, current_pose, new_message_received, prediction_count, state_est
-        new_message_received = True
-        target_pose = np.array([prediction_count*0.01*data.x+current_pose[0], prediction_count*0.01*data.y+current_pose[1], prediction_count*0.01*data.z+current_pose[2]])
+        global target_pose_p, current_pose, new_message_received_p, prediction_count
+        new_message_received_p = True
+        target_pose_p = np.array([current_pose[0], prediction_count*0.01*data.y+current_pose[1], current_pose[2]])
     
     def PI_loop(self,):
-        global new_message_received, target_pose, current_pose, prediction_on
+        global new_message_received, target_pose, current_pose, prediction_on, target_pose_p
 
-        active_target_pose = np.copy(target_pose)
+        if prediction_on:
+            active_target_pose = np.copy(target_pose_p)
+        else:
+            active_target_pose = np.copy(target_pose)
         integral_error = np.array([0.0, 0.0, 0.0])
         previous_error = np.array([0.0, 0.0, 0.0])
 
@@ -103,12 +120,12 @@ class PID_Controller:
         while not rospy.is_shutdown() and not self._reached_target_position(current_pose, active_target_pose):
             starttime = time.time()
 
-            target_pose = np.copy(target_pose)
+            # target_pose = np.copy(target_pose)
 
             # self.position_history.append(current_pose)
 
             # Position Error
-            position_error = target_pose - current_pose
+            position_error = active_target_pose - current_pose
             # Integral Error
             integral_error += position_error * self.ctrl_dt
             integral_error[0] = max(min(integral_error[0], self.PID_integral_max), self.PID_integral_min)  # Clamping
@@ -118,16 +135,14 @@ class PID_Controller:
             # Derivative Error
             derivative_error = 0#(position_error - previous_error) / self.ctrl_dt
 
-
             # Compute PID velocity command
             velocity_command = self.K_p * position_error + self.K_i * integral_error + self.K_d * derivative_error
             
             # print("cmd", velocity_command)
             velocity_command = self._limitVelocity(velocity_command)
 
-
-            # Send velocity commands to the quadcopter
-            # print("cmd", velocity_command)
+            velocity_command = self._limitPos(velocity_command)
+     
             vel_cmd = geometry_msgs.TwistStamped()
             vel_cmd.twist.linear = Vector3(0.0, velocity_command[1], velocity_command[2])
             vel_cmd.twist.angular = Vector3(0.0, 0.0, 0.0)
@@ -137,17 +152,23 @@ class PID_Controller:
             # Update previous error
             previous_error = position_error
             print("runtime: ",time.time()-starttime)
-            if new_message_received:# or np.array_equal(active_target_pose, target_pose)==False:
+            if new_message_received and prediction_on==False:# or np.array_equal(active_target_pose, target_pose)==False:
                 break
+            if new_message_received_p and prediction_on:
+                break
+
 
             self.rate.sleep()  
 
     def main(self):
-        global new_message_received, target_pose, current_pose, prediction_on
+        global new_message_received, new_message_received_p,target_pose, current_pose, prediction_on
 
         while not rospy.is_shutdown():
+            #Add prediciotn siwth here
  
             new_message_received = False
+            new_message_received_p = False
+
 
             # Inner loop runs until a new message is received
             self.PI_loop()
@@ -158,13 +179,21 @@ class PID_Controller:
         position_tolerance = 0.005
         return la.norm(current_position - target_position) < position_tolerance
 
-
     def _limitVelocity(self, velocity):
         # Only check y now
         max_velocity = 4.0
         velocity[1] = np.clip(velocity[1], -max_velocity, max_velocity)
         
         return velocity
+    
+    def _limitPos(self, velocity):
+        global vicon_pose
+        max_y = -2.0
+        if la.norm(vicon_pose[1])<=max_y:
+            return np.array([0,0,0])
+        else:
+            return velocity
+
 
 
 if __name__ == '__main__':
@@ -173,4 +202,12 @@ if __name__ == '__main__':
         ctrl.main()
     except rospy.ROSInterruptException:
         rospy.loginfo("ROSInterruptException caught")
+
+    
+    # save_file = "data_aruco.pkl"
+
+    # with open(save_file ,'wb') as file:
+    #     pickle.dump(data_storage,file)
+
+    # print("finished controller log, saved to {}".format(save_file))
 

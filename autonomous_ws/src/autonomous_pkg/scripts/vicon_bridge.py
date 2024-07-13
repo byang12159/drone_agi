@@ -3,13 +3,14 @@ import rospy
 from pymavlink import mavutil
 import sys, os
 import numpy as np
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64MultiArray, Bool
 import pickle
 
 def main():
     global datastorage
     rospy.init_node('vicon_bridge', anonymous=True)
     pub = rospy.Publisher('/vicon_estimate', Float64MultiArray, queue_size=1)
+    # sub_detection = rospy.Subscriber("/aruco_detection", Bool, queue_size=3)
 
     # create a mavlink serial instance
     master = mavutil.mavlink_connection('udpin:0.0.0.0:10086')
@@ -63,7 +64,7 @@ def main():
 
 if __name__ == '__main__':
     datastorage = []
-    save_file = "data_Vicon.pkl"
+    save_file = "data_Vicon_7_1D.pkl"
 
     try:
         main()
