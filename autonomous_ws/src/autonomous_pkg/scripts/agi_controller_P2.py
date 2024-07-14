@@ -21,10 +21,11 @@ new_message_received = False
 new_message_received_p = False
 current_pose = None
 prediction_on = False
-prediction_count = 50
+prediction_count = 40
 data_storage = []
 state_est = None
 vicon_pose = None
+# did_prediction = False
 
 
 class PID_Controller:
@@ -80,7 +81,8 @@ class PID_Controller:
     def callback(self, data):
         global new_message_received, target_pose, current_pose
         new_message_received = True
-        target_pose = np.array([data.x+current_pose[0], data.y+current_pose[1], data.z+current_pose[2]])
+        target_pose = np.array([current_pose[0], data.y+current_pose[1], data.z+current_pose[2]])
+        print("target",target_pose)
     
     def callback_state(self, data):
        global current_pose
@@ -93,18 +95,18 @@ class PID_Controller:
     def callback_detection_bool(self, data):
         global prediction_on,prediction_count, data_storage
         if data.data:
-            prediction_on = False
-            prediction_count = 50   
+            prediction_on = False   
+            # prediction_count = 
         else:
             prediction_on = True
-            prediction_count +=1
-        data_storage.append([prediction_on,prediction_count,time.time()])
+            prediction_count+=1
+        # data_storage.append([prediction_on,prediction_count,time.time()])
         
             
     def callback_Prediction(self, data):
         global target_pose, current_pose, new_message_received, prediction_count
         new_message_received = True
-        target_pose = np.array([current_pose[0], prediction_count*0.01*data.y+current_pose[1], current_pose[2]])
+        target_pose = np.array([data.x+current_pose[0], prediction_count*0.01*data.y+current_pose[1], current_pose[2]])
     
     def PI_loop(self,):
         global new_message_received, target_pose, current_pose, prediction_on, target_pose_p
@@ -142,7 +144,7 @@ class PID_Controller:
             velocity_command = self._limitPos(velocity_command)
      
             vel_cmd = geometry_msgs.TwistStamped()
-            vel_cmd.twist.linear = Vector3(0.0, velocity_command[1], velocity_command[2])
+            vel_cmd.twist.linear = Vector3(velocity_command[0], velocity_command[1], velocity_command[2])
             vel_cmd.twist.angular = Vector3(0.0, 0.0, 0.0)
             self.pub.publish(vel_cmd)
             # rospy.loginfo("Publishing VelY to Ctrl: {}, Current state :{}, timestamp: {}".format(velocity_command[1], current_pose, time.time()))
@@ -175,19 +177,33 @@ class PID_Controller:
         return la.norm(current_position - target_position) < position_tolerance
 
     def _limitVelocity(self, velocity):
-        # Only check y now
         max_velocity = 4.0
+        velocity[0] = np.clip(velocity[0], -max_velocity, max_velocity)
         velocity[1] = np.clip(velocity[1], -max_velocity, max_velocity)
+        velocity[2] = np.clip(velocity[2], -max_velocity, max_velocity)
         
         return velocity
     
     def _limitPos(self, velocity):
         global vicon_pose
+
+        max_y = 3.2
         min_y = -2.1
-        if vicon_pose[1]<=min_y:
-            return np.array([0,0,0])
-        else:
-            return velocity
+        max_x = 3.1
+        min_x = -1.2
+        max_z = 3.5
+        
+        if vicon_pose[0]>=max_x or vicon_pose[0]<=min_x:
+            print("LIMIT REACHED X")
+            velocity[0] =0.0
+        if vicon_pose[1]>=max_y or vicon_pose[1]<=min_y:
+            print("LIMIT REACHED Y")
+            velocity[1] = 0.0
+        if vicon_pose[2]>=max_z:
+            print("LIMIT REACHED Z")
+            velocity[2] = 0.0
+        
+        return velocity
 
 
 

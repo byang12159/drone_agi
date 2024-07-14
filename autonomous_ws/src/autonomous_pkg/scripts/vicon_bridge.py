@@ -5,6 +5,14 @@ import sys, os
 import numpy as np
 from std_msgs.msg import Float64MultiArray, Bool
 import pickle
+import argparse
+import time
+
+parser = argparse.ArgumentParser(description="")
+parser.add_argument('--save', type=str, default=None, help='Filename to save')
+args = parser.parse_args()
+
+datastorage = []
 
 def main():
     global datastorage
@@ -51,7 +59,7 @@ def main():
 
             # now = rospy.get_rostime()
             # now = now.to_sec()
-            data.data[-1] = msg.time_usec
+            data.data[-1] = time.time()
             pub.publish(data)
 
             # print("x y z: ",round(data.data[0],5), round(data.data[1],5), round(data.data[2],5))
@@ -63,15 +71,15 @@ def main():
             pass
 
 if __name__ == '__main__':
-    datastorage = []
-    save_file = "data_Vicon_7_1D.pkl"
 
     try:
         main()
     except Exception as e:
         print("Error occurred:{}".format(e))
 
-    with open(save_file ,'wb') as file:
-        pickle.dump(datastorage,file)
+    if args.save is not None:
 
-    print("finished vicon bridge log, saved to {}".format(save_file))
+        with open("Vicon_data/" + args.save+".pkl" ,'wb') as file:
+            pickle.dump(datastorage,file)
+            print("finished vicon bridge log, saved to {}".format(args.save))
+            print("Quiting")

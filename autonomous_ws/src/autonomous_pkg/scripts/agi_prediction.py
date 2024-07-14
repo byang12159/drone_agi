@@ -23,6 +23,9 @@ class Prediction():
         
         return viewable_width, viewable_height
 
+    def calculate_backoff(self,bound):
+        return bound/(torch.tan(self.fov_h_radians / 2))
+
 
     def plot_rec(self, ax, min_x,max_x,min_y,max_y,min_z,max_z):
         x = [min_x, max_x, max_x, min_x, min_x, max_x, max_x, min_x]
@@ -57,7 +60,7 @@ class Prediction():
 
     def find_prediction(self, initial_state, ego_state, timestep, accel_range, steps = 2, num_trajectory = 100, visualize = False):
         
-        # initial_state = initial_state.to(self.device)
+        initial_state = torch.from_numpy(initial_state).to(self.device)
         ego_state = torch.from_numpy(ego_state).to(self.device)
 
         # create x6 due to 6D dimension: x y z vx vy vz
@@ -90,7 +93,7 @@ class Prediction():
 
         # Find Hyper-rectangles of Trajectories
         rectangle = []
-        
+
         bound_y,bound_z = self.calculate_viewable_area(torch.norm(ego_state-initial_state[:3]))
 
         for s in range(6, total_trajectories.shape[1], 6):
@@ -101,11 +104,13 @@ class Prediction():
             min_z = torch.min(total_trajectories[:,s+2])
             max_z = torch.max(total_trajectories[:,s+2])
 
-            if torch.abs(max_y-min_y)  > bound_y:
-                break
-            if torch.abs(max_z-min_z)  > bound_z:
-                break
-            rectangle.append([min_x,max_x,min_y,max_y,min_z,max_z])
+            if max_y+initial_state[1] > (bound_y/2)+ego_state[1] or min_y+initial_state[1] > ego_state[1]-(bound_y/2):
+                return self.calculate_backoff(bound_y).item()
+            else:
+                return 0.0
+            # if torch.abs(max_z-min_z)  > bound_z:
+            #     break
+            # rectangle.append([min_x,max_x,min_y,max_y,min_z,max_z])
 
         # # Find predict trajectory by average
         # predict_trajectory = []
@@ -163,3 +168,16 @@ if __name__ == "__main__":
         rectangles, total_traj = p.find_prediction(torch.tensor([2.0,3.,4.,0.,0.,0.]), torch.tensor([1.8,0.,4.]), 0.01, 4, steps = 2, num_trajectory = 6, visualize = False)
         print("runtime",time.time()-starttime)
         print(rectangles)
+
+    # find bound 
+    fov_h = 70
+    aspect_ratio = 4/3
+    fov_h_radians = fov_h*np.pi/180.0
+    fov_v_radians = 2 * np.atan(np.tan(fov_h_radians / 2) / aspect_ratio)
+        
+    
+    def calculate_viewable_area(self, distance):
+        viewable_width = 2 * distance * torch.tan(self.fov_h_radians / 2)
+        viewable_height = 2 * distance * torch.tan(self.fov_v_radians / 2)
+        
+        return viewable_width, viewable_height

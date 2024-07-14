@@ -4,8 +4,8 @@ import numpy as np
 import os
 import numpy.linalg as la
 
-datafile = 'data_Vicon_6_1D.pkl'
-datafile_L = 'data_Viconimage_6_1D.pkl'
+datafile = 'data_vicon_1D_P1_2_agi.pkl'
+datafile_L = 'data_vicon_1D_P1_2_lead.pkl'
 
 folder = 'Vicon_data'
 current_file_dir = os.path.dirname(__file__)
@@ -25,10 +25,22 @@ data_lead= np.array(data)
 x = data_agi[:,0]
 y = data_agi[:,1]
 z = data_agi[:,2]
+vx = data_agi[:,3]
+vy = data_agi[:,4]
+vz = data_agi[:,5]
+ax = data_agi[:,6]
+ay = data_agi[:,7]
+az = data_agi[:,8]
 
 x_lead = data_lead[:,0]
 y_lead = data_lead[:,1]
 z_lead = data_lead[:,2]
+vx_lead = data_lead[:,3]
+vy_lead = data_lead[:,4]
+vz_lead = data_lead[:,5]
+ax_lead = data_lead[:,6]
+ay_lead = data_lead[:,7]
+az_lead = data_lead[:,8]
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -92,4 +104,20 @@ zval.plot(times, z, label = "GT Pos z")
 # zval.plot(times, GT_NED_states_L[:,5], label = "GT Vel z")
 # zval.plot(times, GT_NED_states_L[:,8], label = "GT Accel z")
 zval.legend()
+plt.show()
+
+fig, (vxval, vyval, vzval) = plt.subplots(3, 1, figsize=(14, 10))
+times = np.arange(0,len(x))*timestep
+vxval.plot(times, vx, label = "GT vel x")
+# xval.plot(times, GT_NED_states_L[:,3], label = "GT Vel x")
+# xval.plot(times, GT_NED_states_L[:,6], label = "GT Accel x")
+vxval.legend()  
+vyval.plot(times, vy, label = "GT vel y")
+# yval.plot(times, GT_NED_states_L[:,4], label = "GT Vel y")
+# yval.plot(times, GT_NED_states_L[:,7], label = "GT Accel y")
+vyval.legend()
+vzval.plot(times, vz, label = "GT vel z")
+# zval.plot(times, GT_NED_states_L[:,5], label = "GT Vel z")
+# zval.plot(times, GT_NED_states_L[:,8], label = "GT Accel z")
+vzval.legend()
 plt.show()
