@@ -25,6 +25,7 @@ prediction_count = 40
 data_storage = []
 state_est = None
 vicon_pose = None
+accumulated_backoff = 0
 # did_prediction = False
 
 
@@ -33,7 +34,7 @@ class PID_Controller:
         global target_pose, current_pose, vicon_pose
       
         # Control Parameters:
-        self.K_p = 1.2
+        self.K_p = 1.1
         self.K_i = 0.6
         self.K_d = 0.0
         self.PID_integral_max = 10
@@ -79,9 +80,14 @@ class PID_Controller:
         sys.exit(0)
 
     def callback(self, data):
-        global new_message_received, target_pose, current_pose
+        global new_message_received, target_pose, current_pose,accumulated_backoff
         new_message_received = True
-        target_pose = np.array([current_pose[0], data.y+current_pose[1], data.z+current_pose[2]])
+        if accumulated_backoff<-1.0:
+            # Catch back up to marker
+            target_pose = np.array([current_pose[0], data.y+current_pose[1], data.z+current_pose[2]])
+        else:
+            target_pose = np.array([data.x+current_pose[0]-1.5, data.y+current_pose[1], data.z+current_pose[2]])
+        
         print("target",target_pose)
     
     def callback_state(self, data):
@@ -96,7 +102,7 @@ class PID_Controller:
         global prediction_on,prediction_count, data_storage
         if data.data:
             prediction_on = False   
-            # prediction_count = 
+            prediction_count = 40
         else:
             prediction_on = True
             prediction_count+=1
@@ -104,17 +110,28 @@ class PID_Controller:
         
             
     def callback_Prediction(self, data):
-        global target_pose, current_pose, new_message_received, prediction_count
+        global target_pose, current_pose, new_message_received, prediction_count, accumulated_backoff
         new_message_received = True
-        target_pose = np.array([data.x+current_pose[0], prediction_count*0.01*data.y+current_pose[1], current_pose[2]])
-    
+        backoff = 0.01*(prediction_count)*data.x
+        if accumulated_backoff<-1.5:
+            backoff=0
+        target_pose = np.array([backoff+current_pose[0], prediction_count*0.01*data.y+current_pose[1], current_pose[2]])
+        # accumulated_backoff += backoff
+
+        print("PREDICTION TARGET: ",backoff,prediction_count*0.01*data.y, accumulated_backoff)
+
     def PI_loop(self,):
-        global new_message_received, target_pose, current_pose, prediction_on, target_pose_p
+        global new_message_received, target_pose, current_pose, prediction_on, target_pose_p, accumulated_backoff
 
         active_target_pose = np.copy(target_pose)
 
         integral_error = np.array([0.0, 0.0, 0.0])
         previous_error = np.array([0.0, 0.0, 0.0])
+
+        start_x = None
+        if prediction_on:
+            start_x = current_pose[0]
+
 
         # rospy.loginfo("Starting velPID ctrl, current state: {}, target pos: {}".format(current_pose, active_target_pose))
         while not rospy.is_shutdown() and not self._reached_target_position(current_pose, active_target_pose):
@@ -151,7 +168,7 @@ class PID_Controller:
 
             # Update previous error
             previous_error = position_error
-            print("runtime: ",time.time()-starttime)
+            # print("runtime: ",time.time()-starttime)
 
             if new_message_received:
                 break
@@ -159,6 +176,9 @@ class PID_Controller:
 
             self.rate.sleep()  
 
+        if prediction_on and start_x is not None:
+            accumulated_backoff += current_pose[0]-start_x
+   
     def main(self):
         global new_message_received, new_message_received_p,target_pose, current_pose, prediction_on
 

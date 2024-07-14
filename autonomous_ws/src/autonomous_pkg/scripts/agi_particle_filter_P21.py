@@ -42,11 +42,13 @@ def callback_leader(data):
         target_pose = np.array([data.x+current_pose[0], data.y+current_pose[1], data.z+current_pose[2]])
 
 def callback_detection_bool(data):
-    global MC_prediction_on, MC_prediction_last, mode_switch
+    global MC_prediction_on, MC_prediction_last, mode_switch, prediction_count
     if data.data:
         MC_prediction_on = False
+        prediction_count = 0 
     else:
         MC_prediction_on = True
+        prediction_count +=1
 
     # if MC_prediction_last!=MC_prediction_on:
     #     mode_switch +=1
@@ -94,22 +96,22 @@ def main():
             PF_history.append(mcl.filter.particles['position'])
             print("stateest", state_est)
         else:
+            if prediction_count >= 10:
+                last_state = particle_state_est[-1]
+                backoff_depth = prediction.find_prediction(last_state,current_pose,timestep = 0.5,accel_range=5,steps=3)
+                print("backoff depth",backoff_depth)
+                if backoff_depth != 0.0:
+                    displacement = backoff_depth-1.5 
 
-            last_state = particle_state_est[-1]
-            backoff_depth = prediction.find_prediction(last_state,current_pose,timestep = 0.5,accel_range=5,steps=4)
-            print("backoff depth",backoff_depth)
-            if backoff_depth != 0.0:
-                displacement = backoff_depth-1.5 
+                    if displacement >= 1.2:
+                        displacement = 1.2
 
-                if displacement >= 1.2:
-                    displacement = 1.2
-
-                displacement_msg = Point()
-                displacement_msg.x = -displacement
-                displacement_msg.y = last_state[1]
-                displacement_msg.z = 0
-                pub.publish(displacement_msg)
-                print(displacement_msg)
+                    displacement_msg = Point()
+                    displacement_msg.x = -displacement
+                    displacement_msg.y = last_state[1]
+                    displacement_msg.z = 0
+                    pub.publish(displacement_msg)
+                    print(displacement_msg)
 
 
         print("runtime: ",time.time()-start_time, "prediction on? ",MC_prediction_on, "mode_predict:",mode_predict)

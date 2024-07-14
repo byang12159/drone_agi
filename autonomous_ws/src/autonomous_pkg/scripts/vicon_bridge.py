@@ -17,6 +17,7 @@ datastorage = []
 def main():
     global datastorage
     rospy.init_node('vicon_bridge', anonymous=True)
+    rate = rospy.Rate(20)  # Hz
     pub = rospy.Publisher('/vicon_estimate', Float64MultiArray, queue_size=1)
     # sub_detection = rospy.Subscriber("/aruco_detection", Bool, queue_size=3)
 
@@ -66,9 +67,11 @@ def main():
             print("Full Data: ",data.data)
 
             datastorage.append(data.data[:])
+            
 
         elif msg.get_type() == 'ATT_POS_MOCAP':
             pass
+        # rate.sleep()
 
 if __name__ == '__main__':
 
