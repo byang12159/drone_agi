@@ -4,17 +4,24 @@ import numpy as np
 import os
 import numpy.linalg as la
 
-datafile = 'agi_P2_3.pkl'
+datafile_l = 'vicon_logger_P0_lead.pkl'
+datafile_c = 'vicon_logger_P0_agi.pkl'
 
 folder = 'Vicon_data'
 current_file_dir = os.path.dirname(__file__)
 
-relative_path = os.path.join(current_file_dir, folder, datafile)
+relative_path = os.path.join(current_file_dir, folder, datafile_l)
+with open(relative_path, 'rb') as f:
+    data = pickle.load(f)
+    print(data) 
+data_l= np.array(data)
+
+
+relative_path = os.path.join(current_file_dir, folder, datafile_c)
 with open(relative_path, 'rb') as f:
     data = pickle.load(f)
     print(data) 
 data_agi= np.array(data)
-
 
 x = data_agi[:,0]
 y = data_agi[:,1]
@@ -27,6 +34,12 @@ ay = data_agi[:,7]
 az = data_agi[:,8]
 time = data_agi[:,-1]
 
+x_lead = data_l[:,0]
+y_lead = data_l[:,1]
+z_lead = data_l[:,2]
+time_lead = data_l[:,-1]
+
+
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
@@ -36,7 +49,8 @@ fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
 # Plot the data
-ax.plot(x, y, z, label='3D Line')
+ax.plot(x, y, z, label='AGI')
+ax.plot(x_lead, y_lead, z_lead, label='LEAD')
 
 # Customize the plot
 ax.set_xlabel('X axis')
@@ -59,6 +73,22 @@ yval.plot(times, y, label = "GT Pos y")
 # yval.plot(times, GT_NED_states_L[:,7], label = "GT Accel y")
 yval.legend()
 zval.plot(times, z, label = "GT Pos z")
+# zval.plot(times, GT_NED_states_L[:,5], label = "GT Vel z")
+# zval.plot(times, GT_NED_states_L[:,8], label = "GT Accel z")
+zval.legend()
+plt.show()
+
+fig, (xval, yval, zval) = plt.subplots(3, 1, figsize=(14, 10))
+times = time_lead - time_lead[0]
+xval.plot(times, x_lead, label = "GT Pos x lead")
+# xval.plot(times, GT_NED_states_L[:,3], label = "GT Vel x")
+# xval.plot(times, GT_NED_states_L[:,6], label = "GT Accel x")
+xval.legend()  
+yval.plot(times, y_lead, label = "GT Pos y")
+# yval.plot(times, GT_NED_states_L[:,4], label = "GT Vel y")
+# yval.plot(times, GT_NED_states_L[:,7], label = "GT Accel y")
+yval.legend()
+zval.plot(times, z_lead, label = "GT Pos z")
 # zval.plot(times, GT_NED_states_L[:,5], label = "GT Vel z")
 # zval.plot(times, GT_NED_states_L[:,8], label = "GT Accel z")
 zval.legend()
@@ -124,28 +154,28 @@ plt.show()
 # # Show the plot
 # plt.show()
 
-# # Match Time data:
-# if data_agi.shape[0] > data_lead.shape[0]:
-#     short = data_lead
-#     long = data_agi
-# else:
-#     short = data_agi
-#     long = data_lead
+# Match Time data:
+if data_agi.shape[0] > data_l.shape[0]:
+    short = data_l
+    long = data_agi
+else:
+    short = data_agi
+    long = data_l
 
-# short_times = short[:,-1]
-# long_times = long[:,-1]
+short_times = short[:,-1]
+long_times = long[:,-1]
 
-# min_index = -1
-# min_loss = 1000000
-# for i in range(long.shape[0]-short.shape[0]+1):
-#     difference = short_times-long_times[i:i+len(short_times)]
-#     loss = la.norm(difference)
-#     print(loss)
-#     if loss < min_loss:
-#         min_index = i
-#         min_loss = loss
+min_index = -1
+min_loss = 1000000
+for i in range(long.shape[0]-short.shape[0]+1):
+    difference = short_times-long_times[i:i+len(short_times)]
+    loss = la.norm(difference)
+    print(loss)
+    if loss < min_loss:
+        min_index = i
+        min_loss = loss
 
-# print("Min index:", min_index)
+print("Min index:", min_index)
 
 
 

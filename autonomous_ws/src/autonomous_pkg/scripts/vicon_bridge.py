@@ -12,12 +12,12 @@ parser = argparse.ArgumentParser(description="")
 parser.add_argument('--save', type=str, default=None, help='Filename to save')
 args = parser.parse_args()
 
-datastorage = []
+# datastorage = []
 
 def main():
     global datastorage
     rospy.init_node('vicon_bridge', anonymous=True)
-    rate = rospy.Rate(20)  # Hz
+    # rate = rospy.Rate(20)  # Hz
     pub = rospy.Publisher('/vicon_estimate', Float64MultiArray, queue_size=1)
     # sub_detection = rospy.Subscriber("/aruco_detection", Bool, queue_size=3)
 
@@ -66,7 +66,7 @@ def main():
             # print("x y z: ",round(data.data[0],5), round(data.data[1],5), round(data.data[2],5))
             print("Full Data: ",data.data)
 
-            datastorage.append(data.data[:])
+            # datastorage.append(data.data[:])
             
 
         elif msg.get_type() == 'ATT_POS_MOCAP':
@@ -80,9 +80,9 @@ if __name__ == '__main__':
     except Exception as e:
         print("Error occurred:{}".format(e))
 
-    if args.save is not None:
+    # if args.save is not None:
 
-        with open("Vicon_data/" + args.save+".pkl" ,'wb') as file:
-            pickle.dump(datastorage,file)
-            print("finished vicon bridge log, saved to {}".format(args.save))
-            print("Quiting")
+    #     with open("Vicon_data/" + args.save+".pkl" ,'wb') as file:
+    #         pickle.dump(datastorage,file)
+    #         print("finished vicon bridge log, saved to {}".format(args.save))
+    #         print("Quiting")
