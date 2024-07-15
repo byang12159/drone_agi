@@ -171,7 +171,7 @@ class PID_Controller:
 
   
     def _reached_target_position(self, current_position, target_position):
-        position_tolerance = 0.005
+        position_tolerance = 0.002
         return la.norm(current_position - target_position) < position_tolerance
 
     def _limitVelocity(self, velocity):
@@ -185,7 +185,7 @@ class PID_Controller:
         global vicon_pose
         
         max_y = 3.2
-        min_y = -2.1
+        min_y = -2.3
         max_x = 3.1
         min_x = -1.2
         max_z = 3.5
