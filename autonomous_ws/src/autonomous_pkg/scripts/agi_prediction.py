@@ -23,9 +23,21 @@ class Prediction():
         
         return viewable_width, viewable_height
 
-    def calculate_backoff(self,bound):
-        return bound/(torch.tan(self.fov_h_radians / 2))
+    # def calculate_backoff(self,bound):
+    #     return bound/(torch.tan(self.fov_h_radians / 2))
 
+    def calculate_backoff(self, ego_state, rect):
+        center = (rect[0,:] + rect[1,:])/2 
+        x_dist = ego_state[0] - center[0]
+        rad = (rect[1,:] - rect[0,:])/2 
+        backoff_y = rad[1]/torch.tan(self.fov_h_radians/2)
+        backoff_z = rad[2]/torch.tan(self.fov_v_radians/2)
+        backoff_dist = max(backoff_y, backoff_z)
+        if backoff_dist < x_dist:
+            backoff_dist = x_dist 
+        # else:
+        #     backoff_dist = backoff_dist+x_dist
+        return [center[0]+backoff_dist, center[1], center[2]]
 
     def plot_rec(self, ax, min_x,max_x,min_y,max_y,min_z,max_z):
         x = [min_x, max_x, max_x, min_x, min_x, max_x, max_x, min_x]
@@ -64,50 +76,53 @@ class Prediction():
         ego_state = torch.from_numpy(ego_state).to(self.device)
 
         # create x6 due to 6D dimension: x y z vx vy vz
-        total_trajectories = torch.empty(num_trajectory, (steps+1)*6 ).to(self.device)
+        total_trajectories = torch.empty(num_trajectory, (steps+1), 6).to(self.device)
 
-        total_trajectories[:, 0] = initial_state[0]
-        total_trajectories[:, 1] = initial_state[1]
-        total_trajectories[:, 2] = initial_state[2]
-        total_trajectories[:, 3] = initial_state[3]
-        total_trajectories[:, 4] = initial_state[4]
-        total_trajectories[:, 5] = initial_state[5]
+        total_trajectories[:,0,:] = initial_state
 
-        for s in range(6, total_trajectories.shape[1], 6):
-            sample_accel = torch.rand(num_trajectory,3).to(self.device)* (2 * accel_range) + accel_range
-            new_vel = total_trajectories[:,s-3:s]   + sample_accel * timestep
-            new_pos = total_trajectories[:,s-6:s-3] + new_vel * timestep
+        for s in range(1, total_trajectories.shape[1]):
+            sample_accel = torch.rand(num_trajectory,3).to(self.device)* (2 * accel_range) - accel_range
+            new_vel = total_trajectories[:,s,3:]   + sample_accel * timestep
+            new_pos = total_trajectories[:,s,:3] + new_vel * timestep
         
             # print(sample_accel.shape)
             # print(new_vel.shape)
             # print(new_pos.shape)
             # print(total_trajectories[:, s].shape)
             # print(torch.rand(num_trajectory).shape)
-            total_trajectories[:, s]   = new_pos[:,0]
-            total_trajectories[:, s+1] = new_pos[:,1]
-            total_trajectories[:, s+2] = new_pos[:,2]
-            total_trajectories[:, s+3] = new_vel[:,0]
-            total_trajectories[:, s+4] = new_vel[:,1]
-            total_trajectories[:, s+5] = new_vel[:,2]
+            total_trajectories[:,s,:3] = new_pos
+            total_trajectories[:,s,3:] = new_vel
                 
 
         # Find Hyper-rectangles of Trajectories
         rectangle = []
 
-        bound_y,bound_z = self.calculate_viewable_area(torch.norm(ego_state-initial_state[:3]))
+        for i in range(1, total_trajectories.shape[1]):
+            min_x = torch.min(total_trajectories[:,i,0]).item()
+            max_x = torch.max(total_trajectories[:,i,0]).item()
+            min_y = torch.min(total_trajectories[:,i,1]).item()
+            max_y = torch.max(total_trajectories[:,i,1]).item()
+            min_z = torch.min(total_trajectories[:,i,2]).item()
+            max_z = torch.max(total_trajectories[:,i,2]).item()
 
-        for s in range(6, total_trajectories.shape[1], 6):
-            min_x = torch.min(total_trajectories[:,s])
-            max_x = torch.max(total_trajectories[:,s])
-            min_y = torch.min(total_trajectories[:,s+1])
-            max_y = torch.max(total_trajectories[:,s+1])
-            min_z = torch.min(total_trajectories[:,s+2])
-            max_z = torch.max(total_trajectories[:,s+2])
+            rectangle.append([[min_x, min_y, min_z], [max_x, max_y, max_z]])
 
-            if max_y+initial_state[1] > (bound_y/2)+ego_state[1] or min_y+initial_state[1] > ego_state[1]-(bound_y/2):
-                return self.calculate_backoff(bound_y).item()
-            else:
-                return 0.0
+        rectangle = np.array(rectangle)
+        backoff_state = self.calculate_backoff(ego_state, rectangle[-1,:,:])
+        # bound_y,bound_z = self.calculate_viewable_area(torch.norm(ego_state-initial_state[:3]))
+
+        # for s in range(6, total_trajectories.shape[1], 6):
+        #     min_x = torch.min(total_trajectories[:,s])
+        #     max_x = torch.max(total_trajectories[:,s])
+        #     min_y = torch.min(total_trajectories[:,s+1])
+        #     max_y = torch.max(total_trajectories[:,s+1])
+        #     min_z = torch.min(total_trajectories[:,s+2])
+        #     max_z = torch.max(total_trajectories[:,s+2])
+
+        #     if max_y+initial_state[1] > (bound_y/2)+ego_state[1] or min_y+initial_state[1] > ego_state[1]-(bound_y/2):
+        #         return self.calculate_backoff(bound_y).item()
+        #     else:
+        #         return 0.0
             # if torch.abs(max_z-min_z)  > bound_z:
             #     break
             # rectangle.append([min_x,max_x,min_y,max_y,min_z,max_z])
@@ -159,13 +174,13 @@ class Prediction():
         #     plt.show()
 
 
-        return rectangle, total_trajectories
+        return backoff_state, rectangle
     
 if __name__ == "__main__":
     p = Prediction()
     for i in range(1):
         starttime = time.time()
-        rectangles, total_traj = p.find_prediction(torch.tensor([2.0,3.,4.,0.,0.,0.]), torch.tensor([1.8,0.,4.]), 0.01, 4, steps = 2, num_trajectory = 6, visualize = False)
+        rectangles, total_traj = p.find_prediction(np.array([2.0,3.,4.,0.,0.,0.]), np.array([1.8,0.,4.]), 0.01, 4, steps = 2, num_trajectory = 6, visualize = False)
         print("runtime",time.time()-starttime)
         print(rectangles)
 
@@ -173,7 +188,7 @@ if __name__ == "__main__":
     fov_h = 70
     aspect_ratio = 4/3
     fov_h_radians = fov_h*np.pi/180.0
-    fov_v_radians = 2 * np.atan(np.tan(fov_h_radians / 2) / aspect_ratio)
+    fov_v_radians = 2 * np.arctan(np.tan(fov_h_radians / 2) / aspect_ratio)
         
     
     def calculate_viewable_area(self, distance):
