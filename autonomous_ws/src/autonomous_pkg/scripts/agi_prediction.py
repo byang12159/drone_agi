@@ -82,9 +82,6 @@ class Prediction():
         initial_state = torch.from_numpy(initial_state).to(self.device)
         # ego_state = torch.from_numpy(ego_state).to(self.device)
 
-        self.total_trajectories = torch.empty(self.num_trajectory, (self.steps+1), 6).to(self.device)
-
-
         for s in range(1, self.total_trajectories.shape[1]):
             sample_accel = torch.rand(self.num_trajectory,3).to(self.device)* (2 * accel_range) - accel_range
             new_vel = self.total_trajectories[:,s,3:]   + sample_accel * timestep
