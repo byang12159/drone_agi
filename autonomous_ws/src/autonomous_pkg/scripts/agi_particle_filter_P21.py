@@ -96,22 +96,25 @@ def main():
             PF_history.append(mcl.filter.particles['position'])
             print("stateest", state_est)
         else:
-            if prediction_count >= 10:
+            if prediction_count >= 40:
                 last_state = particle_state_est[-1]
-                backoff_depth = prediction.find_prediction(last_state,current_pose,timestep = 0.5,accel_range=5,steps=3)
-                print("backoff depth",backoff_depth)
-                if backoff_depth != 0.0:
-                    displacement = backoff_depth-1.5 
+                total_trajectories, backoff_state, rectangles = prediction.compute_reach(last_state,current_pose,timestep = 0.25,accel_range=5,steps=6)
+                # last_rectangle = rectangles[-1,:,:]
+                # center = (rectangles[0,:]+rectangles[1,:])/2
+                # backoff_distance = prediction.calculate_backoff()
+                # print("backoff depth",backoff_depth)
+                # if backoff_depth != 0.0:
+                #     displacement = backoff_depth-1.5 
 
-                    if displacement >= 1.2:
-                        displacement = 1.2
+                #     if displacement >= 1.2:
+                #         displacement = 1.2
 
-                    displacement_msg = Point()
-                    displacement_msg.x = -displacement
-                    displacement_msg.y = last_state[1]
-                    displacement_msg.z = 0
-                    pub.publish(displacement_msg)
-                    print(displacement_msg)
+                displacement_msg = Point()
+                displacement_msg.x = backoff_state[0]
+                displacement_msg.y = backoff_state[1]
+                displacement_msg.z = backoff_state[2]
+                pub.publish(displacement_msg)
+                print(displacement_msg)
 
 
         print("runtime: ",time.time()-start_time, "prediction on? ",MC_prediction_on, "mode_predict:",mode_predict)

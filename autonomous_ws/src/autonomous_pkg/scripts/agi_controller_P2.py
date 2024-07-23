@@ -112,13 +112,13 @@ class PID_Controller:
     def callback_Prediction(self, data):
         global target_pose, current_pose, new_message_received, prediction_count, accumulated_backoff
         new_message_received = True
-        backoff = 0.01*(prediction_count)*data.x
-        if accumulated_backoff<-1.5:
-            backoff=0
-        target_pose = np.array([backoff+current_pose[0], prediction_count*0.01*data.y+current_pose[1], current_pose[2]])
+        # backoff = 0.01*(prediction_count)*data.x
+        # if accumulated_backoff<-1.5:
+        #     backoff=0
+        target_pose = np.array([data.x, data.y, data.z])
         # accumulated_backoff += backoff
 
-        print("PREDICTION TARGET: ",backoff,prediction_count*0.01*data.y, accumulated_backoff)
+        print("PREDICTION TARGET: ",data.x, data.y, data.z)
 
     def PI_loop(self,):
         global new_message_received, target_pose, current_pose, prediction_on, target_pose_p, accumulated_backoff
