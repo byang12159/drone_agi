@@ -108,19 +108,35 @@ class Prediction():
         # min_z = torch.min(z_vals).item()
         # max_z = torch.max(z_vals).item()
         # bounds = [min_x,max_x, min_y,max_y, min_z,max_z]
-        rectangle = []
-        for i in range(1, self.total_trajectories.shape[1]):
-            min_x = torch.min(self.total_trajectories[:,i,0]).item()
-            max_x = torch.max(self.total_trajectories[:,i,0]).item()
-            min_y = torch.min(self.total_trajectories[:,i,1]).item()
-            max_y = torch.max(self.total_trajectories[:,i,1]).item()
-            min_z = torch.min(self.total_trajectories[:,i,2]).item()
-            max_z = torch.max(self.total_trajectories[:,i,2]).item()
+        # rectangle = []
+        # for i in range(1, self.total_trajectories.shape[1]):
+        #     min_x = torch.min(self.total_trajectories[:,i,0]).item()
+        #     max_x = torch.max(self.total_trajectories[:,i,0]).item()
+        #     min_y = torch.min(self.total_trajectories[:,i,1]).item()
+        #     max_y = torch.max(self.total_trajectories[:,i,1]).item()
+        #     min_z = torch.min(self.total_trajectories[:,i,2]).item()
+        #     max_z = torch.max(self.total_trajectories[:,i,2]).item()
 
-            rectangle.append([[min_x, min_y, min_z], [max_x, max_y, max_z]])
+        #     rectangle.append([[min_x, min_y, min_z], [max_x, max_y, max_z]])
 
-        rectangle = np.array(rectangle)
+        # # rectangle = np.array(rectangle)
+        # x_vals = self.total_trajectories[:,:,0]
+        # y_vals = self.total_trajectories[:,:,1]
+        # z_vals = self.total_trajectories[:,:,2]
+        # max_x = torch.max(x_vals, dim=0)
+        # min_x = torch.min(x_vals, dim=0)
+        # max_y = torch.max(y_vals, dim=0)
+        # min_y = torch.min(y_vals, dim=0)
+        # max_z = torch.max(z_vals, dim=0)
+        # min_z = torch.min(z_vals, dim=0)
+        # rectangle = 
+        max_values,_ = self.total_trajectories.max(dim=0)
+        min_values,_ = self.total_trajectories.min(dim=0)
 
+        rectangle = torch.stack((min_values, max_values), dim=1)
+
+        # rectangle = rectangle.permute(1,0,2).reshape(self.total_trajectories.shape[1], 2, self.total_trajectories.shape[2])
+        rectangle = rectangle.cpu().detach().numpy()
         # Compute needed backoff given y-bound
         # backoff = self.calculate_backoff((max_y-min_y))
         backoff_state = self.calculate_backoff(rectangle[-1,:,:])
