@@ -32,9 +32,15 @@ class PID_Controller:
         global target_pose, current_pose, vicon_pose
       
         # Control Parameters:
-        self.K_p = 1.2
-        self.K_i = 0.6
-        self.K_d = 0.0
+        # self.K_p = 0.54
+        # self.K_i = 1.53
+        # self.K_d = 0.0
+
+        self.K_p = 0.72
+        self.K_i = 0.918
+        self.K_d = 0.23
+
+
         self.PID_integral_max = 10
         self.PID_integral_min = -10
 
@@ -49,16 +55,11 @@ class PID_Controller:
                         geometry_msgs.TwistStamped,
                         queue_size=1)
         
-        # print("waiting for subscriber to come online")
-        # rospy.wait_for_message('/fake_waypoint', Point)
-        # print("Recieved")
-        # rospy.Subscriber('/fake_waypoint',Point, self.callback,queue_size=1)
-        
-        rospy.Subscriber('/leader_waypoint',Point, self.callback,queue_size=3)
 
-        # rospy.wait_for_message('/leader_global', Point)
-        # print("Recieved")
-        # rospy.Subscriber('/leader_global',Point, self.callback,queue_size=1)
+        rospy.Subscriber('/fake_waypoint',Point, self.callback,queue_size=3)
+        
+        # rospy.Subscriber('/leader_waypoint',Point, self.callback,queue_size=3)
+
 
         sub_startpoint = rospy.Subscriber("/kingfisher/agiros_pilot/state", agiros_msgs.QuadState, self.callback_state, queue_size=1)
         sub_detection_bool = rospy.Subscriber('/aruco_detection',Bool, self.callback_detection_bool,queue_size=3)
@@ -68,6 +69,7 @@ class PID_Controller:
         signal.signal(signal.SIGINT, self.signal_handler)
 
         while target_pose is None or current_pose is None or vicon_pose is None:
+            print("Waiting for datapoints")
             rospy.sleep(0.1) 
 
         self.initial_vicon_state = vicon_pose
@@ -142,14 +144,14 @@ class PID_Controller:
             velocity_command = self._limitPos(velocity_command)
      
             vel_cmd = geometry_msgs.TwistStamped()
-            vel_cmd.twist.linear = Vector3(0.0, velocity_command[1], velocity_command[2])
+            vel_cmd.twist.linear = Vector3(velocity_command[0], velocity_command[1], velocity_command[2])
             vel_cmd.twist.angular = Vector3(0.0, 0.0, 0.0)
             self.pub.publish(vel_cmd)
             # rospy.loginfo("Publishing VelY to Ctrl: {}, Current state :{}, timestamp: {}".format(velocity_command[1], current_pose, time.time()))
 
             # Update previous error
             previous_error = position_error
-            print("runtime: ",time.time()-starttime)
+            # print("runtime: ",time.time()-starttime)
 
             if new_message_received:
                 break
@@ -171,14 +173,17 @@ class PID_Controller:
 
   
     def _reached_target_position(self, current_position, target_position):
-        position_tolerance = 0.002
+        position_tolerance = 0.05
         return la.norm(current_position - target_position) < position_tolerance
 
     def _limitVelocity(self, velocity):
-        # Only check y now
-        max_velocity = 4.0
+        max_velocity = 2.0
+        raw_vel = velocity.copy()
+
+        velocity[0] = np.clip(velocity[0], -max_velocity, max_velocity)
         velocity[1] = np.clip(velocity[1], -max_velocity, max_velocity)
-        
+        velocity[2] = np.clip(velocity[2], -max_velocity, max_velocity)
+        print("RAW Vel: {} CLIP Vel: {}".format(raw_vel, velocity))
         return velocity
     
     def _limitPos(self, velocity):
@@ -186,8 +191,8 @@ class PID_Controller:
         
         max_y = 3.2
         min_y = -2.3
-        max_x = 3.1
-        min_x = -1.2
+        max_x = 3.52
+        min_x = -2.12
         max_z = 3.5
         
         if vicon_pose[0]>=max_x or vicon_pose[0]<=min_x:
