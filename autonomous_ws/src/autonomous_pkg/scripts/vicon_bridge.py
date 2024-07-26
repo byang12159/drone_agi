@@ -18,7 +18,7 @@ def main():
     global datastorage
     rospy.init_node('vicon_bridge', anonymous=True)
     # rate = rospy.Rate(20)  # Hz
-    pub = rospy.Publisher('/vicon_estimate', Float64MultiArray, queue_size=1)
+    pub = rospy.Publisher('/vicon_estimate', Float64MultiArray, queue_size=2)
     # sub_detection = rospy.Subscriber("/aruco_detection", Bool, queue_size=3)
 
     # create a mavlink serial instance
@@ -26,7 +26,7 @@ def main():
 
     data = Float64MultiArray()
 
-    data.data = [0, ] * (9 + 1)
+    data.data = [0, ] * (9 + 6 + 1)
 
     t0 = time.time()
     datastorage.append(t0)
@@ -51,14 +51,14 @@ def main():
 
             # print("Coordinaes recieved")
             # use msg.covaricane to store the yaw and yaw_rate, and q
-            # offset = 100.
-            # data.data[9] = msg.covariance[0] - offset
-            # data.data[10] = msg.covariance[1] - offset
+            offset = 100.
+            data.data[9] = msg.covariance[0] - offset
+            data.data[10] = msg.covariance[1] - offset
 
-            # data.data[11] = msg.covariance[2] - offset
-            # data.data[12] = msg.covariance[3] - offset
-            # data.data[13] = msg.covariance[4] - offset
-            # data.data[14] = msg.covariance[5] - offset
+            data.data[11] = msg.covariance[2] - offset
+            data.data[12] = msg.covariance[3] - offset
+            data.data[13] = msg.covariance[4] - offset
+            data.data[14] = msg.covariance[5] - offset
 
             now = rospy.get_rostime()
             now = now.to_sec()
@@ -67,7 +67,7 @@ def main():
 
             # print("x y z: ",round(data.data[0],5), round(data.data[1],5), round(data.data[2],5))
             print("Full Data: ",data.data)
-            datastorage.append(data.data[:])
+            # datastorage.append(data.data[:])
             
 
         elif msg.get_type() == 'ATT_POS_MOCAP':
@@ -82,7 +82,6 @@ if __name__ == '__main__':
         print("Error occurred:{}".format(e))
 
     if args.save is not None:
-
         with open("Vicon_data/" + args.save+".pkl" ,'wb') as file:
             pickle.dump(datastorage,file)
             print("finished vicon bridge log, saved to {}".format(args.save))

@@ -22,7 +22,7 @@ class Prediction():
         self.steps = steps
 
         # create steps x6 due to 6D dimension state: x y z vx vy vz
-        self.total_trajectories = torch.empty(self.num_trajectory, (self.steps+1), 6).to(self.device)
+        self.total_trajectories = torch.zeros(self.num_trajectory, (self.steps+1), 6).to(self.device)
         
     
     def calculate_viewable_area(self, distance):
@@ -39,12 +39,15 @@ class Prediction():
         rad = (rect[1,:] - rect[0,:])/2 
         backoff_y = rad[1]/np.tan(self.fov_h_radians/2)
         backoff_z = rad[2]/np.tan(self.fov_v_radians/2)
-        backoff_dist = max(backoff_y, backoff_z)-0.5
+        backoff_dist = max(backoff_y, backoff_z)-1.0
         if backoff_dist < 0:
             backoff_dist = 0 
+        if backoff_dist > 4:
+            backoff_dist = 4
         # else:
         #     backoff_dist = backoff_dist+x_dist
-        return [center[0]+backoff_dist, center[1], center[2]]
+
+        return [-backoff_dist, center[1], center[2]]
 
     def plot_rec(self, ax, min_x,max_x,min_y,max_y,min_z,max_z):
         x = [min_x, max_x, max_x, min_x, min_x, max_x, max_x, min_x]
@@ -77,15 +80,21 @@ class Prediction():
 
         return min_radius
 
-    def compute_reach(self, initial_state,  timestep, accel_range,  detection_rate):
+    def compute_reach(self, initial_state,  timestep, accel_range):
         
         initial_state = torch.from_numpy(initial_state).to(self.device)
         # ego_state = torch.from_numpy(ego_state).to(self.device)
 
+        self.total_trajectories[:,0,0] = initial_state[0]
+        self.total_trajectories[:,0,1] = initial_state[1]
+        self.total_trajectories[:,0,2] = initial_state[2]
+        self.total_trajectories[:,0,3] = initial_state[3]
+        self.total_trajectories[:,0,4] = initial_state[4]
+        self.total_trajectories[:,0,5] = initial_state[5]
         for s in range(1, self.total_trajectories.shape[1]):
             sample_accel = torch.rand(self.num_trajectory,3).to(self.device)* (2 * accel_range) - accel_range
-            new_vel = self.total_trajectories[:,s,3:]   + sample_accel * timestep
-            new_pos = self.total_trajectories[:,s,:3] + new_vel * timestep
+            new_vel = self.total_trajectories[:,s-1,3:]   + sample_accel * timestep
+            new_pos = self.total_trajectories[:,s-1,:3] + new_vel * timestep
       
             self.total_trajectories[:,s,:3] = new_pos 
             self.total_trajectories[:,s,3:] = new_vel
@@ -137,9 +146,10 @@ class Prediction():
 
         # rectangle = rectangle.permute(1,0,2).reshape(self.total_trajectories.shape[1], 2, self.total_trajectories.shape[2])
         rectangle = rectangle.cpu().detach().numpy()
+        rectangle[:,:,0] = initial_state[0].item()
         # Compute needed backoff given y-bound
         # backoff = self.calculate_backoff((max_y-min_y))
-        backoff_state = self.calculate_backoff(rectangle[-1,:,:])
+        backoff_state = self.calculate_backoff( rectangle[-1,:,:])
 
         return self.total_trajectories, backoff_state, rectangle
 

@@ -23,7 +23,8 @@ camera_mtx = camera_mtx * scale
 distortion_param = np.array([0.04203676, -0.11190902, 0.00080842, 0.00151827, 0.14878741])
 
 # marker_size = 53.5 #mm
-marker_size = 118 #mm
+# marker_size = 118 #mm
+marker_size = 182.5
 
 alltime = []
 
@@ -70,6 +71,7 @@ def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualiz
     # print("time1", timenow-starttimearuco)
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = cv2.equalizeHist(gray)
 
     markerCorners, markerIds, rejectedCandidates= aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
     
@@ -81,7 +83,7 @@ def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualiz
 
     if markerIds is not None :        
         for i,id in enumerate(markerIds):
-            if id[0] == 0:
+            if id[0] == 85:
                 rvecs, tvecs, objPoints = cv2.aruco.estimatePoseSingleMarkers(markerCorners[i], markerLength=marker_size, cameraMatrix=camera_mtx, distCoeffs=distortion_param)
                 rvec = rvecs[0]
                 tvec = tvecs[0]

@@ -18,7 +18,6 @@ import numpy.linalg as la
 target_pose = None
 target_pose_p = None
 new_message_received = False
-new_message_received_p = False
 current_pose = None
 prediction_on = False
 prediction_count = 40
@@ -34,9 +33,14 @@ class PID_Controller:
         global target_pose, current_pose, vicon_pose
       
         # Control Parameters:
-        self.K_p = 1.1
+        self.K_p = 0.85
         self.K_i = 0.6
         self.K_d = 0.0
+
+        # self.K_p = 0.72
+        # self.K_i = 0.918
+        # self.K_d = 0.23
+
         self.PID_integral_max = 10
         self.PID_integral_min = -10
 
@@ -51,16 +55,13 @@ class PID_Controller:
                         geometry_msgs.TwistStamped,
                         queue_size=1)
         
-        # print("waiting for subscriber to come online")
-        # rospy.wait_for_message('/fake_waypoint', Point)
-        # print("Recieved")
-        # rospy.Subscriber('/fake_waypoint',Point, self.callback,queue_size=1)
-        
-        rospy.Subscriber('/leader_waypoint',Point, self.callback,queue_size=3)
+        self.pub_log = rospy.Publisher('/log_messages_ctrl', Float64MultiArray, queue_size=10)
+        self.log_data = Float64MultiArray()
+        self.log_data.data = [0, ] * (2 + 3 + 3 + 3 + 1)
 
-        # rospy.wait_for_message('/leader_global', Point)
-        # print("Recieved")
-        # rospy.Subscriber('/leader_global',Point, self.callback,queue_size=1)
+
+        # rospy.Subscriber('/fake_waypoint',Point, self.callback,queue_size=1)      
+        rospy.Subscriber('/leader_waypoint',Point, self.callback,queue_size=3)
 
         sub_startpoint = rospy.Subscriber("/kingfisher/agiros_pilot/state", agiros_msgs.QuadState, self.callback_state, queue_size=1)
         sub_detection_bool = rospy.Subscriber('/aruco_detection',Bool, self.callback_detection_bool,queue_size=3)
@@ -82,13 +83,10 @@ class PID_Controller:
     def callback(self, data):
         global new_message_received, target_pose, current_pose,accumulated_backoff
         new_message_received = True
-        if accumulated_backoff<-1.0:
-            # Catch back up to marker
-            target_pose = np.array([current_pose[0], data.y+current_pose[1], data.z+current_pose[2]])
-        else:
-            target_pose = np.array([data.x+current_pose[0]-1.5, data.y+current_pose[1], data.z+current_pose[2]])
+    
+        target_pose = np.array([data.x+current_pose[0]-1.0, data.y+current_pose[1], data.z+current_pose[2]])
         
-        print("target",target_pose)
+        print("Spotted Marker",target_pose)
     
     def callback_state(self, data):
        global current_pose
@@ -115,10 +113,10 @@ class PID_Controller:
         # backoff = 0.01*(prediction_count)*data.x
         # if accumulated_backoff<-1.5:
         #     backoff=0
-        target_pose = np.array([data.x, data.y, data.z])
-        # accumulated_backoff += backoff
+        target_pose = np.array([data.x+current_pose[0], data.y+current_pose[1], data.z+current_pose[2]])
+                # accumulated_backoff += backoff
 
-        print("PREDICTION TARGET: ",data.x, data.y, data.z)
+        print("Prediction Target: ",target_pose)
 
     def PI_loop(self,):
         global new_message_received, target_pose, current_pose, prediction_on, target_pose_p, accumulated_backoff
@@ -173,14 +171,13 @@ class PID_Controller:
             if new_message_received:
                 break
 
-
             self.rate.sleep()  
 
-        if prediction_on and start_x is not None:
-            accumulated_backoff += current_pose[0]-start_x
+        # if prediction_on and start_x is not None:
+        #     accumulated_backoff += current_pose[0]-start_x
    
     def main(self):
-        global new_message_received, new_message_received_p,target_pose, current_pose, prediction_on
+        global new_message_received,target_pose, current_pose, prediction_on
 
         while not rospy.is_shutdown():
             #Add prediciotn siwth here
@@ -189,7 +186,25 @@ class PID_Controller:
 
             # Inner loop runs until a new message is received
             self.PI_loop()
-            rospy.loginfo("Exiting velPID loop")
+
+            # ROS Logging 
+            self.log_data.data[0] = int(prediction_on)
+            self.log_data.data[1] = int(new_message_received)
+            self.log_data.data[2] = current_pose[0]
+            self.log_data.data[3] = current_pose[1]
+            self.log_data.data[4] = current_pose[2]
+            self.log_data.data[5] = target_pose[0]
+            self.log_data.data[6] = target_pose[1]
+            self.log_data.data[7] = target_pose[2]
+            self.log_data.data[8] = vicon_pose[0]
+            self.log_data.data[9] = vicon_pose[1]
+            self.log_data.data[10] = vicon_pose[2]
+            now = rospy.get_rostime()
+            now = now.to_sec()
+            self.log_data.data[-1] = now
+            self.pub_log.publish(self.log_data)
+
+            print("Exiting Vel-PID loop")
 
   
     def _reached_target_position(self, current_position, target_position):
@@ -197,7 +212,7 @@ class PID_Controller:
         return la.norm(current_position - target_position) < position_tolerance
 
     def _limitVelocity(self, velocity):
-        max_velocity = 4.0
+        max_velocity = 1.0
         velocity[0] = np.clip(velocity[0], -max_velocity, max_velocity)
         velocity[1] = np.clip(velocity[1], -max_velocity, max_velocity)
         velocity[2] = np.clip(velocity[2], -max_velocity, max_velocity)
@@ -210,17 +225,17 @@ class PID_Controller:
         max_y = 3.2
         min_y = -2.1
         max_x = 3.1
-        min_x = -1.2
+        min_x = -2.3
         max_z = 3.5
         
         if vicon_pose[0]>=max_x or vicon_pose[0]<=min_x:
-            print("LIMIT REACHED X")
+            print("LIMIT REACHED X: {}".format(vicon_pose[0]))
             velocity[0] =0.0
         if vicon_pose[1]>=max_y or vicon_pose[1]<=min_y:
-            print("LIMIT REACHED Y")
+            print("LIMIT REACHED Y: {}".format(vicon_pose[1]))
             velocity[1] = 0.0
         if vicon_pose[2]>=max_z:
-            print("LIMIT REACHED Z")
+            print("LIMIT REACHED Z: {}".format(vicon_pose[2]))
             velocity[2] = 0.0
         
         return velocity
