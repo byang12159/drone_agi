@@ -84,7 +84,7 @@ class PID_Controller:
         global new_message_received, target_pose, current_pose,accumulated_backoff
         new_message_received = True
     
-        target_pose = np.array([data.x+current_pose[0]-1.0, data.y+current_pose[1], data.z+current_pose[2]])
+        target_pose = np.array([data.x+current_pose[0]-1.5, data.y+current_pose[1], data.z+current_pose[2]])
         
         print("Spotted Marker",target_pose)
     

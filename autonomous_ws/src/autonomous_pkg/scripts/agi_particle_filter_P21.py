@@ -102,7 +102,7 @@ def main():
             if MC_prediction_on and prediction_count >=5 and prediction_count<30:
                 mode = 2 
         elif mode == 2:
-            if prediction_count>=30 and mode_recovery == False:
+            if prediction_count>=30:
                 mode = 3
             elif not MC_prediction_on:
                 mode = 1
@@ -110,7 +110,7 @@ def main():
             if not MC_prediction_on:
                 mode = 4
         elif mode==4:
-            if abs(current_pose[0] - target_pose[0])<1.2:
+            if abs(current_pose[0] - target_pose[0])<2.0:
                 mode=1
         else:
             raise ValueError("Mode {}".format(mode))
@@ -128,24 +128,29 @@ def main():
             displacement_msg = Point()
             displacement_msg.x = 0
             displacement_msg.y = last_state[4]*20*0.01 # Move chaser using vel-est of leader
-            displacement_msg.z = 0
+            displacement_msg.z = last_state[5]*10*0.01
             pub.publish(displacement_msg)
             print("============== Mode 2: Prediction # {} \n Displacement: {}".format(prediction_count,displacement_msg ))
         elif mode==3:
-            last_state = particle_state_est[-1]
-            total_trajectories, backoff_state, rectangles = prediction.compute_reach(last_state, timestep = 0.3,accel_range=2)
-            displacement_msg = Point()
-            displacement_msg.x = backoff_state[0]
-            displacement_msg.y = backoff_state[1]
-            displacement_msg.z = 0 # backoff_state[2]
-            pub.publish(displacement_msg)
-            print("============== Mode 3:  Prediction # {}".format(prediction_count))
-            print(last_state)
-            print(displacement_msg)
-            print(rectangles[-1,:,:])
-            print(total_trajectories[0,0,:])
+            # Only Publish once for mode 3 
 
-            mode_recovery = True
+            if mode_recovery:
+                pass
+            else:
+                last_state = particle_state_est[-1]
+                total_trajectories, backoff_state, rectangles = prediction.compute_reach(last_state, timestep = 0.3,accel_range=2)
+                displacement_msg = Point()
+                displacement_msg.x = backoff_state[0]
+                displacement_msg.y = backoff_state[1]
+                displacement_msg.z = 0 # backoff_state[2]
+                pub.publish(displacement_msg)
+                print("============== Mode 3:  Prediction # {}".format(prediction_count))
+                print(last_state)
+                print(backoff_state)
+                print(rectangles[-1,:,:])
+                print(total_trajectories[0,0,:])
+
+                mode_recovery = True
         elif mode==4:
             state_est, variance = mcl.rgb_run(current_pose= target_pose, past_states1=particle_state_est[-1], time_step=dt )   
             state_est = state_est.to('cpu').numpy()
@@ -208,7 +213,7 @@ def main():
         log_data.data[3] = particle_state_est[-1][3]
         log_data.data[4] = particle_state_est[-1][4]
         log_data.data[5] = particle_state_est[-1][5]
-        log_data.data[6] = int(MC_prediction_on)
+        log_data.data[6] = mode
         log_data.data[7] = prediction_count
         log_data.data[8] = backoff_state[0]
         log_data.data[9] = backoff_state[1]

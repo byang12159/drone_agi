@@ -3,6 +3,8 @@ from line_profiler import LineProfiler
 import rospy
 from std_msgs.msg import Float32, String, Bool
 from geometry_msgs.msg import Point
+from sensor_msgs.msg import Image, CompressedImage
+from cv_bridge import CvBridge
 # import geometry_msgs.msg as geometry_msgs
 
 import numpy as np
@@ -58,6 +60,13 @@ def rotationMatrixToEulerAngles(R) :
 
     return np.array([x, y, z])
 
+
+
+def cv_image_to_ros_image(cv_image):
+    bridge = CvBridge()
+    ros_image = bridge.cv2_to_imgmsg(cv_image, encoding="bgr8")  # Adjust encoding if needed
+    return ros_image
+
 def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualize=False):
     # starttimearuco = time.time()
     def cleanup_cap():
@@ -88,9 +97,9 @@ def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualiz
                 rvec = rvecs[0]
                 tvec = tvecs[0]
 
-                if save or visualize:
-                    frame = aruco.drawDetectedMarkers( frame, markerCorners, markerIds )
-                    frame = cv2.drawFrameAxes(frame, camera_mtx, distortion_param, rvec, tvec,length = 100, thickness=6)
+                # if save or visualize:
+                gray = aruco.drawDetectedMarkers( gray, markerCorners, markerIds )
+                gray = cv2.drawFrameAxes(gray, camera_mtx, distortion_param, rvec, tvec,length = 100, thickness=6)
             
                 # rotation_mtx, jacobian = cv2.Rodrigues(rvec)
                 # translation = tvec
@@ -108,7 +117,7 @@ def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualiz
 
     # timenow = time.time()
     # print("time3", timenow-starttimearuco)
-    return Ts, detection
+    return Ts, detection, gray
 
 def get_camera():
     cap = cv2.VideoCapture(0)
@@ -133,10 +142,17 @@ def publisher():
     rospy.init_node('picam', anonymous=True)
     pub = rospy.Publisher("/leader_waypoint", Point, queue_size=3)
     pub_detection = rospy.Publisher("/aruco_detection", Bool, queue_size=1)
-    rate = rospy.Rate(60)  # Hz
+    pub_image = rospy.Publisher('/picam', CompressedImage, queue_size=10)
+
+    rate = rospy.Rate(40)  # Hz
+    # Drop from 60 to 40 to publish images
 
     aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_250)
     parameters = aruco.DetectorParameters_create()
+
+    bridge = CvBridge()
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90] 
+
 
     cap = get_camera()
     time.sleep(2)
@@ -145,8 +161,8 @@ def publisher():
     count = 0
 
     while not rospy.is_shutdown():
-        # starttime = time.time()
-        Ts, detection_check = detect_aruco(cap, aruco_dict, parameters, save="image/{}.jpg".format(count))
+        starttime = time.time()
+        Ts, detection_check, return_frame = detect_aruco(cap, aruco_dict, parameters, save="image/{}.jpg".format(count))
 
         # print("time exit: ",time.time()-starttime)
         
@@ -167,12 +183,26 @@ def publisher():
         
             # rospy.loginfo("Aruco Detection, Published Point message: {}".format(displacement_msg))
         
+
+        success, encoded_image = cv2.imencode('.jpg', return_frame, encode_param)
+        if not success:
+            rospy.logwarn("Failed to encode image")
+            continue
         
+        # Convert the encoded image to a ROS CompressedImage message
+        compressed_image_msg = CompressedImage()
+        compressed_image_msg.header.stamp = rospy.Time.now()
+        compressed_image_msg.format = "jpeg"
+        compressed_image_msg.data = encoded_image.tobytes()
+        
+        # Publish the CompressedImage message
+        pub_image.publish(compressed_image_msg)
+
         # key = cv2.waitKey(1) & 0xFF
         # if key == ord('q'): break
 
-        # runtime = time.time() - starttime
-        # print('run time %.3fs'%(runtime))
+        runtime = time.time() - starttime
+        print('run time %.3fs'%(runtime))
         count +=1
         rate.sleep()
     
