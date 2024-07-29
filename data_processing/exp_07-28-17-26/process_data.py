@@ -68,6 +68,12 @@ for i in range(ctrl_data.shape[0]):
     tmp[i, 14] = vicon_data[i, 2]
 ctrl_data = tmp
 
+# Oscilating Frames
+# 1760-1827
+# 1906-1993
+# 2019-
+
+
 plt.figure(0)
 plt.plot(ctrl_ts, ctrl_data[:,0])
 plt.plot(ctrl_ts, ctrl_data[:,5])
@@ -75,7 +81,12 @@ plt.plot(ctrl_ts, ctrl_data[:,5])
 # plt.plot(ctrl_ts, ctrl_data[:,12]*30)
 plt.plot(pf_ts, pf_data[:,6])
 plt.plot(pf_ts, pf_data[:,7]/30)
-plt.plot([1722206114.704959048,1722206114.704959048],[0,3],'b')
+plt.plot([1722206110.373621,1722206110.373621],[0,3],'b')
+plt.plot([1722206112.2036602,1722206112.2036602],[0,3],'r')
+plt.plot([1722206114.5905025,1722206114.5905025],[0,3],'b')
+plt.plot([1722206117.1908855,1722206117.1908855],[0,3],'r')
+plt.plot([1722206118.1939206,1722206118.1939206],[0,3],'b')
+
 plt.figure(1)
 plt.plot(ctrl_ts, ctrl_data[:,0])
 plt.plot(ctrl_ts, ctrl_data[:,6])
@@ -83,7 +94,11 @@ plt.plot(ctrl_ts, ctrl_data[:,6])
 # plt.plot(ctrl_ts, ctrl_data[:,13]*30)
 plt.plot(pf_ts, pf_data[:,6])
 plt.plot(pf_ts, pf_data[:,7]/30)
-plt.plot([1722206114.704959048,1722206114.704959048],[0,3],'b')
+plt.plot([1722206110.373621,1722206110.373621],[0,3],'b')
+plt.plot([1722206112.2036602,1722206112.2036602],[0,3],'r')
+plt.plot([1722206114.5905025,1722206114.5905025],[0,3],'b')
+plt.plot([1722206117.1908855,1722206117.1908855],[0,3],'r')
+plt.plot([1722206118.1939206,1722206118.1939206],[0,3],'b')
 plt.figure(2)
 plt.plot(ctrl_ts, ctrl_data[:,0])
 plt.plot(ctrl_ts, ctrl_data[:,7])
@@ -91,7 +106,11 @@ plt.plot(ctrl_ts, ctrl_data[:,7])
 # plt.plot(ctrl_ts, ctrl_data[:,14])
 plt.plot(pf_ts, pf_data[:,6])
 plt.plot(pf_ts, pf_data[:,7]/30)
-plt.plot([1722206114.704959048,1722206114.704959048],[0,3],'b')
+plt.plot([1722206110.373621,1722206110.373621],[0,3],'b')
+plt.plot([1722206112.2036602,1722206112.2036602],[0,3],'r')
+plt.plot([1722206114.5905025,1722206114.5905025],[0,3],'b')
+plt.plot([1722206117.1908855,1722206117.1908855],[0,3],'r')
+plt.plot([1722206118.1939206,1722206118.1939206],[0,3],'b')
 plt.figure(3)
 plt.plot(pf_ts, pf_data[:,7])
 plt.show()
