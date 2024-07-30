@@ -7,7 +7,7 @@ from std_msgs.msg import Float32, String, Bool,Float64MultiArray
 import geometry_msgs.msg as geometry_msgs
 import agiros_msgs.msg as agiros_msgs
 import numpy as np
-from geometry_msgs.msg import TwistStamped, Twist, Vector3, Point
+from geometry_msgs.msg import TwistStamped, Twist, Vector3, Point, Pose
 import numpy.linalg as la
 import pickle
 import time
@@ -25,6 +25,8 @@ data_storage = []
 state_est = None
 vicon_pose = None
 accumulated_backoff = 0
+current_mode = 1
+mode_count = 0
 # did_prediction = False
 
 
@@ -61,16 +63,16 @@ class PID_Controller:
 
 
         # rospy.Subscriber('/fake_waypoint',Point, self.callback,queue_size=1)      
-        rospy.Subscriber('/leader_waypoint',Point, self.callback,queue_size=3)
+        # rospy.Subscriber('/leader_waypoint',Point, self.callback,queue_size=1)
 
         sub_startpoint = rospy.Subscriber("/kingfisher/agiros_pilot/state", agiros_msgs.QuadState, self.callback_state, queue_size=1)
-        sub_detection_bool = rospy.Subscriber('/aruco_detection',Bool, self.callback_detection_bool,queue_size=3)
-        sub_PF = rospy.Subscriber('/prediction_output',Point, self.callback_Prediction,queue_size=3)
-        sub_vicon = rospy.Subscriber("/vicon_estimate", Float64MultiArray, self.callback_vicon, queue_size=5)
+        sub_detection_bool = rospy.Subscriber('/aruco_detection',Bool, self.callback_detection_bool,queue_size=1)
+        sub_PF = rospy.Subscriber('/prediction_output',Pose, self.callback_Prediction,queue_size=1)
+        sub_vicon = rospy.Subscriber("/vicon_estimate", Float64MultiArray, self.callback_vicon, queue_size=1)
 
         signal.signal(signal.SIGINT, self.signal_handler)
 
-        while target_pose is None or current_pose is None or vicon_pose is None:
+        while target_pose is None or vicon_pose is None:
             rospy.sleep(0.1) 
 
         self.initial_vicon_state = vicon_pose
@@ -108,15 +110,16 @@ class PID_Controller:
         
             
     def callback_Prediction(self, data):
-        global target_pose, current_pose, new_message_received, prediction_count, accumulated_backoff
+        global target_pose, current_pose, new_message_received, prediction_count, accumulated_backoff, current_mode, mode_count
         new_message_received = True
         # backoff = 0.01*(prediction_count)*data.x
         # if accumulated_backoff<-1.5:
         #     backoff=0
-        target_pose = np.array([data.x+current_pose[0], data.y+current_pose[1], data.z+current_pose[2]])
-                # accumulated_backoff += backoff
+        target_pose = np.array([data.position.x+current_pose[0], data.position.y+current_pose[1], data.position.z+current_pose[2]])
+        current_mode = int(data.orientation.x)
 
-        print("Prediction Target: ",target_pose)
+        if current_mode == 4:
+            print("Prediction Mode: ",current_mode, " Target: ",target_pose)
 
     def PI_loop(self,):
         global new_message_received, target_pose, current_pose, prediction_on, target_pose_p, accumulated_backoff
@@ -171,13 +174,13 @@ class PID_Controller:
             if new_message_received:
                 break
 
-            self.rate.sleep()  
+            # if velocity_command[0] >= 1 and current_mode ==4:
+            #     rospy.signal_shutdown("Manual shutdown")
 
-        # if prediction_on and start_x is not None:
-        #     accumulated_backoff += current_pose[0]-start_x
+            self.rate.sleep()  
    
     def main(self):
-        global new_message_received,target_pose, current_pose, prediction_on
+        global new_message_received,target_pose, current_pose, prediction_on, mode_count
 
         while not rospy.is_shutdown():
             #Add prediciotn siwth here
@@ -212,11 +215,32 @@ class PID_Controller:
         return la.norm(current_position - target_position) < position_tolerance
 
     def _limitVelocity(self, velocity):
+        global current_mode, mode_count
+        # current_mode = 1
+        if current_mode < 4:
+            max_velocity_x = 1.0
+            mode_count = 0
+        else:
+            # exp_vel = np.exp(0.01 * mode_count) - 0.8
+            exp_vel = 1/100*mode_count+0.2
+            print("EXP", exp_vel)
+            max_velocity_x = min(1.0, exp_vel)
+            # max_velocity_x = 0.2
+            mode_count += 1
+
+        
+        # exp_vel = np.exp(0.01 * mode_count) - 0.8
+        # max_velocity_x = min(1.0, exp_vel)    
+        # # max_velocity_x = 0.2
         max_velocity = 1.0
-        velocity[0] = np.clip(velocity[0], -max_velocity, max_velocity)
+
+        velocity[0] = np.clip(velocity[0], -max_velocity_x, max_velocity_x)
         velocity[1] = np.clip(velocity[1], -max_velocity, max_velocity)
         velocity[2] = np.clip(velocity[2], -max_velocity, max_velocity)
-        
+
+        # if current_mode == 4:          
+        print("velocity: ", velocity)
+
         return velocity
     
     def _limitPos(self, velocity):
