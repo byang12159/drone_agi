@@ -4,3 +4,5 @@
 __pycache__/
 **/build/
 **/devel/
+.DS_Store
+**/.DS_Store
