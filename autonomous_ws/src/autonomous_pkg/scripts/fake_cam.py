@@ -20,13 +20,13 @@ def talker():
 
         if count%2==0:
             displacement_msg = Point()
-            displacement_msg.x =  0.0
-            displacement_msg.y = 0.5
+            displacement_msg.x =  0.8
+            displacement_msg.y = 0.0
             displacement_msg.z = 1.0
         else:
             displacement_msg = Point()
-            displacement_msg.x =  0.0
-            displacement_msg.y = -0.5
+            displacement_msg.x =  -0.8
+            displacement_msg.y = 0.0
             displacement_msg.z = 1.0
     
         pub.publish(displacement_msg)
@@ -34,9 +34,9 @@ def talker():
         count +=1
 
         rospy.loginfo("Publishing point {}".format(displacement_msg))
-        time.sleep(1)
+        time.sleep(5)
 
-        if count >=5:
+        if count >=6:
             break
         
 

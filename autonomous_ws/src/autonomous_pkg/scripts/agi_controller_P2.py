@@ -7,7 +7,7 @@ from std_msgs.msg import Float32, String, Bool,Float64MultiArray
 import geometry_msgs.msg as geometry_msgs
 import agiros_msgs.msg as agiros_msgs
 import numpy as np
-from geometry_msgs.msg import TwistStamped, Twist, Vector3, Point, Pose
+from geometry_msgs.msg import TwistStamped, Twist, Vector3, Point, Pose, PointStamped
 import numpy.linalg as la
 import pickle
 import time
@@ -62,8 +62,8 @@ class PID_Controller:
         self.log_data.data = [0, ] * (2 + 3 + 3 + 3 + 1)
 
 
-        # rospy.Subscriber('/fake_waypoint',Point, self.callback,queue_size=1)      
-        # rospy.Subscriber('/leader_waypoint',Point, self.callback,queue_size=1)
+        # rospy.Subscriber('/fake_waypoint',Point, self.callback_fake,queue_size=1)      
+        rospy.Subscriber('/leader_waypoint',PointStamped, self.callback,queue_size=1)
 
         sub_startpoint = rospy.Subscriber("/kingfisher/agiros_pilot/state", agiros_msgs.QuadState, self.callback_state, queue_size=1)
         sub_detection_bool = rospy.Subscriber('/aruco_detection',Bool, self.callback_detection_bool,queue_size=1)
@@ -82,13 +82,22 @@ class PID_Controller:
         rospy.signal_shutdown("Ctrl+C pressed")
         sys.exit(0)
 
-    def callback(self, data):
+    def callback(self, data:PointStamped):
         global new_message_received, target_pose, current_pose,accumulated_backoff
         new_message_received = True
     
-        target_pose = np.array([data.x+current_pose[0]-1.5, data.y+current_pose[1], data.z+current_pose[2]])
+        target_pose = np.array([data.point.x+current_pose[0]-1.5, data.point.y+current_pose[1], data.point.z+current_pose[2]])
         
         print("Spotted Marker",target_pose)
+
+    def callback_fake(self, data):
+        global new_message_received, target_pose, current_pose,accumulated_backoff
+        new_message_received = True
+    
+        target_pose = np.array([data.x, data.y, data.z])
+        
+        print("Spotted Marker",target_pose)
+
     
     def callback_state(self, data):
        global current_pose
@@ -218,23 +227,23 @@ class PID_Controller:
         global current_mode, mode_count
         # current_mode = 1
         if current_mode < 4:
-            max_velocity_x = 1.0
+            max_velocity_l = 1.0
             mode_count = 0
         else:
             # exp_vel = np.exp(0.01 * mode_count) - 0.8
             exp_vel = 1/100*mode_count+0.2
             print("EXP", exp_vel)
-            max_velocity_x = min(1.0, exp_vel)
-            # max_velocity_x = 0.2
+            max_velocity_l = min(1.0, exp_vel)
+            # max_velocity_l = 0.2
             mode_count += 1
 
         
         # exp_vel = np.exp(0.01 * mode_count) - 0.8
-        # max_velocity_x = min(1.0, exp_vel)    
-        # # max_velocity_x = 0.2
+        # max_velocity_l = min(1.0, exp_vel)    
+        # # max_velocity_l = 0.2
         max_velocity = 1.0
 
-        velocity[0] = np.clip(velocity[0], -max_velocity_x, max_velocity_x)
+        velocity[0] = np.clip(velocity[0], -max_velocity_l, max_velocity_l)
         velocity[1] = np.clip(velocity[1], -max_velocity, max_velocity)
         velocity[2] = np.clip(velocity[2], -max_velocity, max_velocity)
 
@@ -247,7 +256,7 @@ class PID_Controller:
         global vicon_pose
 
         max_y = 3.2
-        min_y = -2.1
+        min_y = -3.0
         max_x = 3.1
         min_x = -2.3
         max_z = 3.5

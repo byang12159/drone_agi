@@ -2,7 +2,7 @@
 from line_profiler import LineProfiler
 import rospy
 from std_msgs.msg import Float32, String, Bool
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import PointStamped
 from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge
 # import geometry_msgs.msg as geometry_msgs
@@ -26,9 +26,9 @@ distortion_param = np.array([0.04203676, -0.11190902, 0.00080842, 0.00151827, 0.
 
 # marker_size = 53.5 #mm
 # marker_size = 118 #mm
-marker_size = 182.5
-
-alltime = []
+# marker_size = 182.5 #mm
+marker_size = 125.2
+marker_ID = 85
 
 
 # Checks if a matrix is a valid rotation matrix.
@@ -64,7 +64,7 @@ def rotationMatrixToEulerAngles(R) :
 
 def cv_image_to_ros_image(cv_image):
     bridge = CvBridge()
-    ros_image = bridge.cv2_to_imgmsg(cv_image, encoding="bgr8")  # Adjust encoding if needed
+    ros_image = bridge.cv2_to_imgmsg(cv_image, encoding="bgr8")  
     return ros_image
 
 def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualize=False):
@@ -92,12 +92,11 @@ def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualiz
 
     if markerIds is not None :        
         for i,id in enumerate(markerIds):
-            if id[0] == 85:
+            if id[0] == marker_ID:
                 rvecs, tvecs, objPoints = cv2.aruco.estimatePoseSingleMarkers(markerCorners[i], markerLength=marker_size, cameraMatrix=camera_mtx, distCoeffs=distortion_param)
                 rvec = rvecs[0]
                 tvec = tvecs[0]
 
-                # if save or visualize:
                 gray = aruco.drawDetectedMarkers( gray, markerCorners, markerIds )
                 gray = cv2.drawFrameAxes(gray, camera_mtx, distortion_param, rvec, tvec,length = 100, thickness=6)
             
@@ -140,7 +139,7 @@ def release_camera(cap):
 
 def publisher():
     rospy.init_node('picam', anonymous=True)
-    pub = rospy.Publisher("/leader_waypoint", Point, queue_size=3)
+    pub = rospy.Publisher("/leader_waypoint", PointStamped, queue_size=3)
     pub_detection = rospy.Publisher("/aruco_detection", Bool, queue_size=1)
     pub_image = rospy.Publisher('/picam', CompressedImage, queue_size=10)
 
@@ -168,10 +167,11 @@ def publisher():
         
         if detection_check:
             # print(f"Translation x:{round(-Ts[0, 3],2)} y:{round(Ts[1, 3],2)} z:{round(Ts[2, 3],2)}")
-            displacement_msg = Point()
-            displacement_msg.x =  Ts[2, 3]
-            displacement_msg.y = -Ts[0, 3]
-            displacement_msg.z = -Ts[1, 3]
+            displacement_msg = PointStamped()
+            displacement_msg.header.stamp = rospy.Time.now()
+            displacement_msg.point.x =  Ts[2, 3]
+            displacement_msg.point.y = -Ts[0, 3]
+            displacement_msg.point.z = -Ts[1, 3]
             
             detection_msg = Bool(data=True)
             pub_detection.publish(detection_msg)

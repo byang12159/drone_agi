@@ -27,6 +27,7 @@ mode_recovery =  False
 prediction_count = 0
 mode2_count = 0
 
+leader_hist = []
 mode = 1
 
 # vicon_pose = None
@@ -40,8 +41,13 @@ def callback_state(data):
 
 def callback_leader(data):
     global target_pose, current_pose
+    timestamp = data.header.stamp.to_sec()
+
     if current_pose is not None:
-        target_pose = np.array([data.point.x+current_pose[0], data.point.y+current_pose[1], data.point.z+current_pose[2]])
+        new_target_pose = [data.point.x+current_pose[0], data.point.y+current_pose[1], data.point.z+current_pose[2], timestamp]
+
+    append_history(np.array(new_target_pose))
+    target_pose = np.array(new_target_pose[0:3])
 
 def callback_detection_bool(data):
     global MC_prediction_on, MC_prediction_last, mode_switch, prediction_count, mode_recovery
@@ -58,9 +64,18 @@ def callback_detection_bool(data):
     #     mode_switch +=1
     # MC_prediction_last=MC_prediction_on
 
+def append_history(new_pos):
+    global leader_hist
+    if len(leader_hist) >= 10:
+            leader_hist.pop(0)  # Remove the oldest entry
+    leader_hist.append(new_pos)
+    
 def main():
     global start_PF, mode_recovery,prediction_count,mode_switch,particle_state_est, variance_history, PF_history, prediction_history, current_pose, pub_startsignal, target_pose, MC_prediction_on, last_prediction_signal
     global vicon_pose, mode, mode2_count
+
+    for i in range(10):
+        append_history(np.array([0,0,0]))
 
     rospy.init_node('particlefilter', anonymous=True)
 
@@ -93,17 +108,17 @@ def main():
     rospy.loginfo('Initializing Particle Filter')
     mcl = RunParticle(starting_state=target_pose)  
     PF_history.append(mcl.filter.particles['position'])
-    PF_store = [np.array(mcl.filter.particles.cpu())]
 
     i = 0
     sleep_count = 0
+
     while not rospy.is_shutdown():
 
         start_time = time.time()
         backoff_state = [0,0,0]
 
         if mode == 1:
-            if MC_prediction_on and prediction_count >=10:
+            if MC_prediction_on and prediction_count >=30:
                 mode = 3 
         elif mode == 3:
             if not MC_prediction_on:
@@ -113,26 +128,6 @@ def main():
                 mode=1
         else:
             raise ValueError("Mode {}".format(mode))
-        
-        # if mode == 1:
-        #     if MC_prediction_on and prediction_count >=5 and prediction_count<30:
-        #         # if mode2_count > 0:
-        #         #     break
-        #         mode = 2 
-        # elif mode == 2:
-        #     if prediction_count>=30:
-        #         mode2_count += 1
-        #         mode = 3
-        #     elif not MC_prediction_on:
-        #         mode = 1
-        # elif mode == 3:
-        #     if not MC_prediction_on:
-        #         mode = 4
-        # elif mode==4:
-        #     if abs(current_pose[0] - target_pose[0])<1.8:
-        #         mode=1
-        # else:
-        #     raise ValueError("Mode {}".format(mode))
         
 
         if mode==1 and not MC_prediction_on:
@@ -150,6 +145,8 @@ def main():
             PF_history.append(mcl.filter.particles['position'])
             print("state-est", state_est)
             mode_recovery = False
+     
+
         elif mode==2:
             # break
             last_state = particle_state_est[-1]
@@ -166,7 +163,14 @@ def main():
             if mode_recovery:
                 pass
             else:
-                last_state = particle_state_est[-1]
+                # last_state = particle_state_est[-1]
+                # Use finite difference for vel
+                print("LEADER",leader_hist)
+
+                last_vel = (leader_hist[-1][0:3]-leader_hist[-2][0:3])/float(leader_hist[-1][-1]-leader_hist[-2][-1])
+                last_state = np.array([leader_hist[-1][0], leader_hist[-1][1], leader_hist[-1][2], 
+                                       last_vel[0], last_vel[1], last_vel[2] ])
+                print("LASTSTATE",last_state)
                 total_trajectories, backoff_state, rectangles = prediction.compute_reach(last_state, timestep = 0.3,accel_range=2)
                 displacement_msg = Pose()
                 displacement_msg.position.x = backoff_state[0]
@@ -182,7 +186,7 @@ def main():
 
                 mode_recovery = True
         elif mode==4:
-            if sleep_count <30:
+            if sleep_count <50:
 
                 displacement_msg = Pose()
                 displacement_msg.position.x = 0
@@ -206,56 +210,14 @@ def main():
             state_est = state_est.to('cpu').numpy()
             particle_state_est.append(state_est)
             PF_history.append(mcl.filter.particles['position'])
-
+            
             mode_recovery = False
+            
             print("============== Mode 4")
             print("state-est", target_pose)
         elif mode not in [1,2,3,4]:
             raise ValueError("Mode {}".format(mode))
-            
-        # if MC_prediction_on == False:
-        #     state_est, variance = mcl.rgb_run(current_pose= target_pose, past_states1=particle_state_est[-1], time_step=dt )   
-        #     state_est = state_est.to('cpu').numpy()
-        #     particle_state_est.append(state_est)
-        #     PF_history.append(mcl.filter.particles['position'])
-        #     print("state-est", state_est)
-
-        #     if mode_recovery == True:
-        #         # Just recovered from mode 3
-        #         prediction_count 
-        #         break
-        #     mode_recovery = False
-        # else:
-        #     if prediction_count >= 5 and prediction_count < 30:
-        #         last_state = particle_state_est[-1]
-        #         displacement_msg = Point()
-        #         displacement_msg.x = 0
-        #         displacement_msg.y = last_state[4]*20*0.01 # Move chaser using vel-est of leader
-        #         displacement_msg.z = 0
-        #         pub.publish(displacement_msg)
-        #         print("============== Mode 2: Prediction # {} \n Displacement: {}".format(prediction_count,displacement_msg ))
-        #     else:
-        #         # Check if 1) not temporary vision loss 2) only publish recovery once
-        #         if prediction_count >= 30 and mode_recovery == False:
-        #             last_state = particle_state_est[-1]
-        #             total_trajectories, backoff_state, rectangles = prediction.compute_reach(last_state, timestep = 0.3,accel_range=2)
-        #             displacement_msg = Point()
-        #             displacement_msg.x = backoff_state[0]
-        #             displacement_msg.y = backoff_state[1]
-        #             displacement_msg.z = 0 # backoff_state[2]
-        #             pub.publish(displacement_msg)
-        #             print("============== Mode 3:  Prediction # {}".format(prediction_count))
-        #             print(last_state)
-        #             print(displacement_msg)
-        #             print(rectangles[-1,:,:])
-        #             print(total_trajectories[0,0,:])
-
-        #             mode_recovery = True
-
-        #             # break
-        #             # i+=1
-        #             # if i>10:
-        #             #     break
+    
         
         # ROS Logging 
         log_data.data[0] = particle_state_est[-1][0]
@@ -274,15 +236,11 @@ def main():
         now = now.to_sec()
         log_data.data[-1] = now
        
-
-
-        PF_store.append(np.array(mcl.filter.particles.cpu()))
-        np.save('tmp.npy', np.array(PF_store))
         pub_log.publish(log_data)
         # print("Prediction Count: ",prediction_count)
         # print("runtime: ",time.time()-start_time)
         rate.sleep()
-
+        # print("leader",leader_hist)
 if __name__ == '__main__':
     
     try:
