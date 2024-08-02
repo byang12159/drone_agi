@@ -1,8 +1,0 @@
-prefix=/home/agi2_drone/catkin_ws/src/agilicious_internal/agiros/agiros/launch/drone_agi/autonomous_ws/devel
-
-Name: autonomous_pkg
-Description: Description of autonomous_pkg
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 
