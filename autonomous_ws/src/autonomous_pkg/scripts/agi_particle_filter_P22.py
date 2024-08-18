@@ -130,8 +130,8 @@ def main():
             raise ValueError("Mode {}".format(mode))
         
 
+        displacement = 1.0
         if mode==1 and not MC_prediction_on:
-            displacement = 1.5
             displacement_msg = Pose()
             displacement_msg.position.x = target_pose[0]-current_pose[0]-displacement
             displacement_msg.position.y = target_pose[1]-current_pose[1]
@@ -196,7 +196,7 @@ def main():
                 pub.publish(displacement_msg)
               
             else:
-                displacement = 1.5
+                # displacement = 1.5
                 displacement_msg = Pose()
                 displacement_msg.position.x = target_pose[0]-current_pose[0]-displacement
                 displacement_msg.position.y = target_pose[1]-current_pose[1]

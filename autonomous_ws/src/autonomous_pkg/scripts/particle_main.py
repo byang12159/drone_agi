@@ -53,6 +53,8 @@ class RunParticle():
         
         self.state_est_history.append(state_est)
 
+        self.past_10_velocity = None
+
     def mat3d(self, x,y,z):
         # Create a 3D figure
         fig = plt.figure()
@@ -148,6 +150,10 @@ class RunParticle():
         particles_velocity_before_update = self.filter.particles['velocity'].clone().detach()
 
         current_velocity  = (current_pose-past_states1[:3])/time_step
+        if self.past_10_velocity is None:
+            self.past_10_velocity = current_velocity.repeat(10,1)
+        else:
+            self.past_10_velocity = torch.cat((self.past_10_velocity[1:,:], current_velocity), dim=0)
 
         losses = self.get_loss(current_pose, current_velocity, particles_position_before_update, particles_velocity_before_update)
 
@@ -161,6 +167,7 @@ class RunParticle():
         position_est = self.filter.compute_weighted_position_average()
         velocity_est = self.filter.compute_weighted_velocity_average()
         state_est = torch.cat((position_est, velocity_est))
+        # state_est = torch.cat((position_est, current_velocity))
 
         self.state_est_history.append(state_est)
 

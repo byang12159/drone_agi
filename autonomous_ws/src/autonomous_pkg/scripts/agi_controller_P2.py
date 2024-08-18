@@ -63,7 +63,7 @@ class PID_Controller:
 
 
         # rospy.Subscriber('/fake_waypoint',Point, self.callback_fake,queue_size=1)      
-        rospy.Subscriber('/leader_waypoint',PointStamped, self.callback,queue_size=1)
+        # rospy.Subscriber('/leader_waypoint',PointStamped, self.callback,queue_size=1)
 
         sub_startpoint = rospy.Subscriber("/kingfisher/agiros_pilot/state", agiros_msgs.QuadState, self.callback_state, queue_size=1)
         sub_detection_bool = rospy.Subscriber('/aruco_detection',Bool, self.callback_detection_bool,queue_size=1)
@@ -255,10 +255,10 @@ class PID_Controller:
     def _limitPos(self, velocity):
         global vicon_pose
 
-        max_y = 3.2
-        min_y = -3.0
-        max_x = 3.1
-        min_x = -2.3
+        max_x = 3.0
+        min_x = -2.6
+        max_y = -3.6
+        min_y = 1.8
         max_z = 3.5
         
         if vicon_pose[0]>=max_x or vicon_pose[0]<=min_x:
