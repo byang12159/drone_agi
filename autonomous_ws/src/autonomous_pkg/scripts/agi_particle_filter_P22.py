@@ -96,14 +96,14 @@ def main():
     dt = 1.0/40.0
 
     log_data = Float64MultiArray()
-    log_data.data = [0, ] * (6 + 2 + 3 + 2)
+    log_data.data = [0, ] * (6 + 2 + 3 + 2 + 2)
 
     prediction = Prediction(100, 5)
 
     while current_pose is None or target_pose is None:
         rate.sleep()
     
-    particle_state_est.append(np.array([target_pose[0], target_pose[1], target_pose[2],0.0, 0.0, 0.0]))
+    particle_state_est.append(np.array([target_pose[0], target_pose[1], target_pose[2],0.0, 0.0, 0.0, target_pose[1], 0.0]))
     
     rospy.loginfo('Initializing Particle Filter')
     mcl = RunParticle(starting_state=target_pose)  
@@ -117,6 +117,8 @@ def main():
         start_time = time.time()
         backoff_state = [0,0,0]
 
+        displacement = 1.0
+
         if mode == 1:
             if MC_prediction_on and prediction_count >=30:
                 mode = 3 
@@ -124,13 +126,12 @@ def main():
             if not MC_prediction_on:
                 mode = 4
         elif mode==4:
-            if abs(current_pose[0] - target_pose[0]) <= 1.8:
+            if abs(current_pose[0] - target_pose[0]) <= displacement+0.3:
                 mode=1
         else:
             raise ValueError("Mode {}".format(mode))
         
 
-        displacement = 1.0
         if mode==1 and not MC_prediction_on:
             displacement_msg = Pose()
             displacement_msg.position.x = target_pose[0]-current_pose[0]-displacement
@@ -173,8 +174,8 @@ def main():
                 print("LASTSTATE",last_state)
                 total_trajectories, backoff_state, rectangles = prediction.compute_reach(last_state, timestep = 0.3,accel_range=2)
                 displacement_msg = Pose()
-                displacement_msg.position.x = backoff_state[0]
-                displacement_msg.position.y = backoff_state[1]
+                displacement_msg.position.x = backoff_state[0]-current_pose[0]
+                displacement_msg.position.y = backoff_state[1]-current_pose[1]
                 displacement_msg.position.z = 0 # backoff_state[2]
                 displacement_msg.orientation.x = mode
                 pub.publish(displacement_msg)
@@ -220,6 +221,7 @@ def main():
     
         
         # ROS Logging 
+        print(particle_state_est[-1])
         log_data.data[0] = particle_state_est[-1][0]
         log_data.data[1] = particle_state_est[-1][1]
         log_data.data[2] = particle_state_est[-1][2]
@@ -231,10 +233,12 @@ def main():
         log_data.data[8] = backoff_state[0]
         log_data.data[9] = backoff_state[1]
         log_data.data[10] = backoff_state[2]
-        log_data.data[-2] = time.time()-start_time # While loop runtime
+        log_data.data[11] = time.time()-start_time # While loop runtime
         now = rospy.get_rostime()
         now = now.to_sec()
-        log_data.data[-1] = now
+        log_data.data[12] = now
+        log_data.data[13] = particle_state_est[-1][6] # y position from pf
+        log_data.data[14] = particle_state_est[-1][7] # y velocity from pf
        
         pub_log.publish(log_data)
         # print("Prediction Count: ",prediction_count)

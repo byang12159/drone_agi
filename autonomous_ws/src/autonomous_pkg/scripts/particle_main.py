@@ -55,6 +55,19 @@ class RunParticle():
 
         self.past_10_velocity = None
 
+        time_step = 0.03
+        self.x = None
+        self.P = np.eye(3) 
+        self.A = np.array([
+            [1,0,time_step],
+            [1,0,0],
+            [0.05*1/0.03, 0.05*(-1)/0.03, 0.95*1]
+        ])
+        self.Q = np.eye(3)
+        self.H = np.array([[1,0,0],[0,1,0]])
+        self.R = np.eye(2)
+
+
     def mat3d(self, x,y,z):
         # Create a 3D figure
         fig = plt.figure()
@@ -141,6 +154,19 @@ class RunParticle():
     def rgb_run(self,current_pose, past_states1, time_step):
         start_time = time.time() 
 
+        current_y = current_pose[1]
+        past_y = past_states1[1]
+        if self.x is None:
+            self.x = np.array([[current_y],[current_y],[0]])
+        self.x = self.A@self.x 
+        self.P = self.A@self.P@self.A.T+self.Q 
+        z = np.array([[current_y], [past_y]])
+        y = z-self.H@self.x 
+        S = self.H@self.P@self.H.T+self.R 
+        self.K = self.P@self.H.T@np.linalg.inv(S)
+        self.x = self.x+self.K@y 
+        self.P = self.P-self.K@self.H@self.P 
+
         current_pose = torch.tensor(current_pose).to(self.device)
         past_states1 = torch.tensor(past_states1).to(self.device)
         
@@ -150,10 +176,10 @@ class RunParticle():
         particles_velocity_before_update = self.filter.particles['velocity'].clone().detach()
 
         current_velocity  = (current_pose-past_states1[:3])/time_step
-        if self.past_10_velocity is None:
-            self.past_10_velocity = current_velocity.repeat(10,1)
-        else:
-            self.past_10_velocity = torch.cat((self.past_10_velocity[1:,:], current_velocity), dim=0)
+        # if self.past_10_velocity is None:
+        #     self.past_10_velocity = current_velocity.repeat(10,1)
+        # else:
+        #     self.past_10_velocity = torch.cat((self.past_10_velocity[1:,:], current_velocity), dim=0)
 
         losses = self.get_loss(current_pose, current_velocity, particles_position_before_update, particles_velocity_before_update)
 
@@ -166,7 +192,9 @@ class RunParticle():
 
         position_est = self.filter.compute_weighted_position_average()
         velocity_est = self.filter.compute_weighted_velocity_average()
-        state_est = torch.cat((position_est, velocity_est))
+        state_est = torch.cat((position_est, velocity_est, torch.FloatTensor([position_est[1],velocity_est[1]]).cuda()))
+        state_est[1] = self.x[0,0]
+        state_est[4] = self.x[2,0]
         # state_est = torch.cat((position_est, current_velocity))
 
         self.state_est_history.append(state_est)
