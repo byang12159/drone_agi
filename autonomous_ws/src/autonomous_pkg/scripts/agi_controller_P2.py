@@ -255,12 +255,17 @@ class PID_Controller:
     def _limitPos(self, velocity):
         global vicon_pose
 
-        max_x = 3.0
-        min_x = -2.6
-        max_y = -3.6
-        min_y = 1.8
+        # max_x = 3.0
+        # min_x = -2.6
+        # max_y = 1.8
+        # min_y = -3.6
+        # max_z = 3.5
+        max_y = 3.2
+        min_y = -2.4
+        max_x = 3.1
+        min_x = -2.0
         max_z = 3.5
-        
+
         if vicon_pose[0]>=max_x or vicon_pose[0]<=min_x:
             print("LIMIT REACHED X: {}".format(vicon_pose[0]))
             velocity[0] =0.0
