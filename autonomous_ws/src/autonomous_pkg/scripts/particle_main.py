@@ -56,17 +56,27 @@ class RunParticle():
         self.past_10_velocity = None
 
         time_step = 0.03
-        self.x = None
-        self.P = np.eye(3) 
-        self.A = np.array([
+        self.kf_y = None
+        self.kf_P_y = np.eye(3) 
+        self.kf_A_y = np.array([
             [1,0,time_step],
             [1,0,0],
             [0.05*1/0.03, 0.05*(-1)/0.03, 0.95*1]
         ])
-        self.Q = np.eye(3)
-        self.H = np.array([[1,0,0],[0,1,0]])
-        self.R = np.eye(2)
+        self.kf_Q_y = np.eye(3)
+        self.kf_H_y = np.array([[1,0,0],[0,1,0]])
+        self.kf_R_y = np.eye(2)
 
+        self.kf_z = None
+        self.kf_P_z = np.eye(3) 
+        self.kf_A_z = np.array([
+            [1,0,time_step],
+            [1,0,0],
+            [0.01*1/0.03, 0.01*(-1)/0.03, 0.99*1]
+        ])
+        self.kf_Q_z = np.eye(3)
+        self.kf_H_z = np.array([[1,0,0],[0,1,0]])
+        self.kf_R_z = np.eye(2)
 
     def mat3d(self, x,y,z):
         # Create a 3D figure
@@ -156,16 +166,30 @@ class RunParticle():
 
         current_y = current_pose[1]
         past_y = past_states1[1]
-        if self.x is None:
-            self.x = np.array([[current_y],[current_y],[0]])
-        self.x = self.A@self.x 
-        self.P = self.A@self.P@self.A.T+self.Q 
+        if self.kf_y is None:
+            self.kf_y = np.array([[current_y],[current_y],[0]])
+        self.kf_y = self.kf_A_y@self.kf_y 
+        self.kf_P_y = self.kf_A_y@self.kf_P_y@self.kf_A_y.T+self.kf_Q_y 
         z = np.array([[current_y], [past_y]])
-        y = z-self.H@self.x 
-        S = self.H@self.P@self.H.T+self.R 
-        self.K = self.P@self.H.T@np.linalg.inv(S)
-        self.x = self.x+self.K@y 
-        self.P = self.P-self.K@self.H@self.P 
+        y = z-self.kf_H_y@self.kf_y 
+        S = self.kf_H_y@self.kf_P_y@self.kf_H_y.T+self.kf_R_y 
+        self.K = self.kf_P_y@self.kf_H_y.T@np.linalg.inv(S)
+        self.kf_y = self.kf_y+self.K@y 
+        self.kf_P_y = self.kf_P_y-self.K@self.kf_H_y@self.kf_P_y 
+
+        current_z = current_pose[2]
+        past_z = past_states1[2]
+        if self.kf_z is None:
+            self.kf_z = np.array([[current_z],[current_z],[0]])
+        self.kf_z = self.kf_A_z@self.kf_z 
+        self.kf_P_z = self.kf_A_z@self.kf_P_z@self.kf_A_z.T+self.kf_Q_z 
+        z = np.array([[current_z], [past_z]])
+        y = z-self.kf_H_z@self.kf_z 
+        S = self.kf_H_z@self.kf_P_z@self.kf_H_z.T+self.kf_R_z 
+        self.K = self.kf_P_z@self.kf_H_z.T@np.linalg.inv(S)
+        self.kf_z = self.kf_z+self.K@y 
+        self.kf_P_z = self.kf_P_z-self.K@self.kf_H_z@self.kf_P_z 
+
 
         current_pose = torch.tensor(current_pose).to(self.device)
         past_states1 = torch.tensor(past_states1).to(self.device)
@@ -192,9 +216,11 @@ class RunParticle():
 
         position_est = self.filter.compute_weighted_position_average()
         velocity_est = self.filter.compute_weighted_velocity_average()
-        state_est = torch.cat((position_est, velocity_est, torch.FloatTensor([position_est[1],velocity_est[1]]).cuda()))
-        state_est[1] = self.x[0,0]
-        state_est[4] = self.x[2,0]
+        state_est = torch.cat((position_est, velocity_est, torch.FloatTensor([position_est[1],velocity_est[1],position_est[2],velocity_est[2]]).cuda()))
+        state_est[1] = self.kf_y[0,0]
+        state_est[2] = self.kf_z[0,0]
+        state_est[4] = self.kf_y[2,0]
+        state_est[5] = self.kf_z[2,0]
         # state_est = torch.cat((position_est, current_velocity))
 
         self.state_est_history.append(state_est)

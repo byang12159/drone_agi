@@ -116,7 +116,7 @@ def detect_aruco(cap=None, aruco_dict=None, parameters=None, save=None, visualiz
 
     # timenow = time.time()
     # print("time3", timenow-starttimearuco)
-    return Ts, detection, gray
+    return Ts, detection, gray, frame
 
 def get_camera():
     cap = cv2.VideoCapture(0)
@@ -142,6 +142,7 @@ def publisher():
     pub = rospy.Publisher("/leader_waypoint", PointStamped, queue_size=3)
     pub_detection = rospy.Publisher("/aruco_detection", Bool, queue_size=1)
     pub_image = rospy.Publisher('/picam', CompressedImage, queue_size=10)
+    pub_image_raw = rospy.Publisher('/picam_raw', CompressedImage, queue_size=10)
 
     rate = rospy.Rate(40)  # Hz
     # Drop from 60 to 40 to publish images
@@ -161,7 +162,7 @@ def publisher():
 
     while not rospy.is_shutdown():
         starttime = time.time()
-        Ts, detection_check, return_frame = detect_aruco(cap, aruco_dict, parameters, save="image/{}.jpg".format(count))
+        Ts, detection_check, return_frame, raw_frame = detect_aruco(cap, aruco_dict, parameters, save="image/{}.jpg".format(count))
 
         # print("time exit: ",time.time()-starttime)
         
@@ -194,9 +195,18 @@ def publisher():
         compressed_image_msg.header.stamp = rospy.Time.now()
         compressed_image_msg.format = "jpeg"
         compressed_image_msg.data = encoded_image.tobytes()
-        
         # Publish the CompressedImage message
         pub_image.publish(compressed_image_msg)
+
+        success, encoded_image = cv2.imencode('.jpg', raw_frame, encode_param)
+        if not success:
+            rospy.logwarn("Failed to encode image")
+            continue
+        compressed_image_msg = CompressedImage()
+        compressed_image_msg.header.stamp = rospy.Time.now()
+        compressed_image_msg.format = "jpeg"
+        compressed_image_msg.data = encoded_image.tobytes()
+        pub_image_raw.publish(compressed_image_msg)
 
         # key = cv2.waitKey(1) & 0xFF
         # if key == ord('q'): break

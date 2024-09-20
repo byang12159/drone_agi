@@ -96,14 +96,14 @@ def main():
     dt = 1.0/40.0
 
     log_data = Float64MultiArray()
-    log_data.data = [0, ] * (6 + 2 + 3 + 2 + 2)
+    log_data.data = [0, ] * (6 + 2 + 3 + 2 + 2 + 2+1)
 
     prediction = Prediction(100, 5)
 
     while current_pose is None or target_pose is None:
         rate.sleep()
     
-    particle_state_est.append(np.array([target_pose[0], target_pose[1], target_pose[2],0.0, 0.0, 0.0, target_pose[1], 0.0]))
+    particle_state_est.append(np.array([target_pose[0], target_pose[1], target_pose[2],0.0, 0.0, 0.0, target_pose[1], 0.0, target_pose[2], 0.0]))
     
     rospy.loginfo('Initializing Particle Filter')
     mcl = RunParticle(starting_state=target_pose)  
@@ -117,11 +117,12 @@ def main():
         start_time = time.time()
         backoff_state = [0,0,0]
 
-        displacement = 1.0
+        displacement = 1.3
 
         if mode == 1:
-            if MC_prediction_on and prediction_count >=30:
+            if MC_prediction_on and prediction_count >=20:
                 mode = 3 
+            # pass 
         elif mode == 3:
             if not MC_prediction_on:
                 mode = 4
@@ -133,10 +134,28 @@ def main():
         
 
         if mode==1 and not MC_prediction_on:
+            current_state = np.array([current_pose[0], current_pose[1], current_pose[2], 
+                                       particle_state_est[-1][3], particle_state_est[-1][4], particle_state_est[-1][5] ])
+            total_trajectories, backoff_state, rectangles = prediction.compute_reach(current_state, timestep=0.3,accel_range=2)
+
             displacement_msg = Pose()
             displacement_msg.position.x = target_pose[0]-current_pose[0]-displacement
-            displacement_msg.position.y = target_pose[1]-current_pose[1]
-            displacement_msg.position.z = target_pose[2]-current_pose[2]
+            displacement_msg.position.y = (0.9*target_pose[1]+0.1*backoff_state[1])-current_pose[1]
+            displacement_msg.position.z = (0.98*target_pose[2]+0.02*backoff_state[2])-current_pose[2]
+            # displacement_msg.position.y = target_pose[1]-current_pose[1]
+            # displacement_msg.position.z = target_pose[2]-current_pose[2]
+            
+            # if displacement < 1.8:
+            #     displacement_msg.position.z = (0.98*target_pose[2]+0.02*backoff_state[2])-current_pose[2]
+            # else:
+            #     displacement_msg.position.z = target_pose[2]
+
+
+            # # displacement = 1.5
+            # displacement_msg = Pose()
+            # displacement_msg.position.x = target_pose[0]-current_pose[0]-displacement
+            # displacement_msg.position.y = target_pose[1]-current_pose[1]
+            # displacement_msg.position.z = target_pose[2]-current_pose[2]
             displacement_msg.orientation.x = mode
             pub.publish(displacement_msg)
         
@@ -164,19 +183,27 @@ def main():
             if mode_recovery:
                 pass
             else:
-                # last_state = particle_state_est[-1]
+                last_state = particle_state_est[-1]
                 # Use finite difference for vel
                 print("LEADER",leader_hist)
 
-                last_vel = (leader_hist[-1][0:3]-leader_hist[-2][0:3])/float(leader_hist[-1][-1]-leader_hist[-2][-1])
-                last_state = np.array([leader_hist[-1][0], leader_hist[-1][1], leader_hist[-1][2], 
-                                       last_vel[0], last_vel[1], last_vel[2] ])
-                print("LASTSTATE",last_state)
-                total_trajectories, backoff_state, rectangles = prediction.compute_reach(last_state, timestep = 0.3,accel_range=2)
+                # last_vel = (leader_hist[-1][0:3]-leader_hist[-2][0:3])/float(leader_hist[-1][-1]-leader_hist[-2][-1])
+                # last_state = np.array([leader_hist[-1][0], leader_hist[-1][1], leader_hist[-1][2], 
+                #                        last_vel[0], last_vel[1], last_vel[2] ])
+                # print("LASTSTATE",last_state)
+                total_trajectories, backoff_state, rectangles = prediction.compute_reach(last_state, timestep=0.3,accel_range=2)
                 displacement_msg = Pose()
                 displacement_msg.position.x = backoff_state[0]-current_pose[0]
                 displacement_msg.position.y = backoff_state[1]-current_pose[1]
-                displacement_msg.position.z = 0 # backoff_state[2]
+                # Try adding prediction for z 
+                # tmp = np.clip(backoff_state[2] - current_pose[2], -0.5, 0.5)
+                # displacement_msg.position.z = tmp
+                # if backoff_state[2] - current_pose[2]>0:
+                #     displacement_msg.position.z = np.clip(backoff_state[2] - current_pose[2], 0, 0.5)
+                # else:
+                #     displacement_msg.position.z = 1.5-current_pose[2]
+                # displacement_msg.position.z = 1.5-current_pose[2]
+                displacement_msg.position.z = 0
                 displacement_msg.orientation.x = mode
                 pub.publish(displacement_msg)
                 print("============== Mode 3:  Prediction # {}".format(prediction_count))
@@ -187,7 +214,7 @@ def main():
 
                 mode_recovery = True
         elif mode==4:
-            if sleep_count <50:
+            if sleep_count <20:
 
                 displacement_msg = Pose()
                 displacement_msg.position.x = 0
@@ -197,11 +224,25 @@ def main():
                 pub.publish(displacement_msg)
               
             else:
-                # displacement = 1.5
+                current_state = np.array([current_pose[0], current_pose[1], current_pose[2], 
+                                        particle_state_est[-1][3], particle_state_est[-1][4], particle_state_est[-1][5] ])
+                total_trajectories, backoff_state, rectangles = prediction.compute_reach(current_state, timestep=0.3,accel_range=2)
+                    
+
                 displacement_msg = Pose()
                 displacement_msg.position.x = target_pose[0]-current_pose[0]-displacement
-                displacement_msg.position.y = target_pose[1]-current_pose[1]
-                displacement_msg.position.z = target_pose[2]-current_pose[2]
+                displacement_msg.position.y = (0.9*target_pose[1]+0.1*backoff_state[1])-current_pose[1]
+                displacement_msg.position.z = (0.98*target_pose[2]+0.02*backoff_state[2])-current_pose[2]
+                # if displacement < 1.8:
+                #     displacement_msg.position.z = (0.98*target_pose[2]+0.02*backoff_state[2])-current_pose[2]
+                # else:
+                #     displacement_msg.position.z = target_pose[2]
+    
+                # # displacement = 1.5
+                # displacement_msg = Pose()
+                # displacement_msg.position.x = target_pose[0]-current_pose[0]-displacement
+                # displacement_msg.position.y = target_pose[1]-current_pose[1]
+                # displacement_msg.position.z = target_pose[2]-current_pose[2]
                 displacement_msg.orientation.x = mode
                 pub.publish(displacement_msg)
             
@@ -223,11 +264,11 @@ def main():
         # ROS Logging 
         print(particle_state_est[-1])
         log_data.data[0] = particle_state_est[-1][0]
-        log_data.data[1] = particle_state_est[-1][1]
-        log_data.data[2] = particle_state_est[-1][2]
+        log_data.data[1] = particle_state_est[-1][1] # y position from kf
+        log_data.data[2] = particle_state_est[-1][2] # z position from kf
         log_data.data[3] = particle_state_est[-1][3]
-        log_data.data[4] = particle_state_est[-1][4]
-        log_data.data[5] = particle_state_est[-1][5]
+        log_data.data[4] = particle_state_est[-1][4] # y velocity from kf
+        log_data.data[5] = particle_state_est[-1][5] # z velocity from kf 
         log_data.data[6] = mode
         log_data.data[7] = prediction_count
         log_data.data[8] = backoff_state[0]
@@ -239,7 +280,10 @@ def main():
         log_data.data[12] = now
         log_data.data[13] = particle_state_est[-1][6] # y position from pf
         log_data.data[14] = particle_state_est[-1][7] # y velocity from pf
-       
+        log_data.data[15] = particle_state_est[-1][8] # z position from pf
+        log_data.data[16] = particle_state_est[-1][9] # z velocity from pf
+        log_data.data[17] = MC_prediction_on
+
         pub_log.publish(log_data)
         # print("Prediction Count: ",prediction_count)
         # print("runtime: ",time.time()-start_time)

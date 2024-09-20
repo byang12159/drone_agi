@@ -231,7 +231,7 @@ class PID_Controller:
             mode_count = 0
         else:
             # exp_vel = np.exp(0.01 * mode_count) - 0.8
-            exp_vel = 1/100*mode_count+0.2
+            exp_vel = 1/100*mode_count+0.05 
             print("EXP", exp_vel)
             max_velocity_l = min(1.0, exp_vel)
             # max_velocity_l = 0.2
@@ -260,11 +260,23 @@ class PID_Controller:
         # max_y = 1.8
         # min_y = -3.6
         # max_z = 3.5
+        # (4.2, 3.9)
+        # (-2.5, 3.9)
+        # (-2.5,-3.5)
+        # (4.2, -3.5)
+        # max_y = 3.6
+        # min_y = -3.2
+        # max_x = 3.9
+        # min_x = -2.2
+        # max_z = 2.2
+        # min_z = 0.3
+
         max_y = 3.2
         min_y = -2.4
         max_x = 3.1
         min_x = -2.0
-        max_z = 3.5
+        max_z = 3.0
+        min_z = 0.3
 
         if vicon_pose[0]>=max_x or vicon_pose[0]<=min_x:
             print("LIMIT REACHED X: {}".format(vicon_pose[0]))
@@ -272,9 +284,15 @@ class PID_Controller:
         if vicon_pose[1]>=max_y or vicon_pose[1]<=min_y:
             print("LIMIT REACHED Y: {}".format(vicon_pose[1]))
             velocity[1] = 0.0
-        if vicon_pose[2]>=max_z:
+        if vicon_pose[2]>=max_z or vicon_pose[2]<=min_z:
             print("LIMIT REACHED Z: {}".format(vicon_pose[2]))
             velocity[2] = 0.0
+
+        if vicon_pose[2]>=2.7:
+            print(f"DANGEROUS HEIGHT Z: {vicon_pose[2]}; STOPPING")
+            velocity[0] = 0
+            velocity[1] = 0
+            velocity[2] = 0
         
         return velocity
 
