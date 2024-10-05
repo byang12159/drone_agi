@@ -7,7 +7,7 @@ from std_msgs.msg import Float32, String, Bool,Float64MultiArray
 import geometry_msgs.msg as geometry_msgs
 import agiros_msgs.msg as agiros_msgs
 import numpy as np
-from geometry_msgs.msg import TwistStamped, Twist, Vector3, Point, Pose, PointStamped
+from geometry_msgs.msg import TwistStamped, Twist, Vector3, Point, Pose, PointStamped, PoseArray, Quaternion
 import numpy.linalg as la
 import pickle
 import time
@@ -18,7 +18,6 @@ import numpy.linalg as la
 target_pose = None
 target_pose_p = None
 new_message_received = False
-current_pose = None
 prediction_on = False
 prediction_count = 40
 data_storage = []
@@ -35,8 +34,8 @@ class PID_Controller:
         global target_pose, current_pose, vicon_pose
       
         # Control Parameters:
-        self.K_p = 0.85
-        self.K_i = 0.6
+        self.K_p = 1.0
+        self.K_i = 0.7
         self.K_d = 0.0
 
         # self.K_p = 0.72
@@ -62,8 +61,14 @@ class PID_Controller:
         self.log_data.data = [0, ] * (2 + 3 + 3 + 3 + 1)
 
 
-        rospy.Subscriber('/fake_waypoint',Point, self.callback_fake,queue_size=1)      
+        # rospy.Subscriber('/fake_waypoint',Point, self.callback_fake,queue_size=1)      
+        rospy.Subscriber('/fake_waypoint_list', PoseArray, self.callback_fake, queue_size=1)
+
+        self.waypoints_list = np.array([])
+        self.current_waypoint_id = 0
         # rospy.Subscriber('/leader_waypoint',PointStamped, self.callback,queue_size=1)
+
+        self.current_pose = None 
 
         sub_startpoint = rospy.Subscriber("/kingfisher/agiros_pilot/state", agiros_msgs.QuadState, self.callback_state, queue_size=1)
         sub_detection_bool = rospy.Subscriber('/aruco_detection',Bool, self.callback_detection_bool,queue_size=1)
@@ -72,7 +77,8 @@ class PID_Controller:
 
         signal.signal(signal.SIGINT, self.signal_handler)
 
-        while target_pose is None or vicon_pose is None:
+        vicon_pose = np.array([0,0,0])
+        while self.waypoints_list.size<=0 or vicon_pose is None or self.current_pose is None:
             rospy.sleep(0.1) 
 
         self.initial_vicon_state = vicon_pose
@@ -83,25 +89,47 @@ class PID_Controller:
         sys.exit(0)
 
     def callback(self, data:PointStamped):
-        global new_message_received, target_pose, current_pose,accumulated_backoff
+        global new_message_received, target_pose,accumulated_backoff
         new_message_received = True
     
-        target_pose = np.array([data.point.x+current_pose[0]-1.5, data.point.y+current_pose[1], data.point.z+current_pose[2]])
+        target_pose = np.array([data.point.x+self.current_pose[0]-1.5, data.point.y+self.current_pose[1], data.point.z+self.current_pose[2]])
         
         print("Spotted Marker",target_pose)
 
-    def callback_fake(self, data):
-        global new_message_received, target_pose, current_pose,accumulated_backoff
-        new_message_received = True
+    def callback_fake(self, data:PoseArray):
+        # global new_message_received, target_pose, current_pose,accumulated_backoff
+        # new_message_received = True
     
-        target_pose = np.array([data.x, data.y, data.z])
+        # target_pose = np.array([data.x, data.y, data.z])
         
-        print("Spotted Marker",target_pose)
+        # print("Spotted Marker",target_pose)
+        print("message received")
+        posearray = data.poses
+        print("Length: {}".format(len(posearray))) 
+        waypoints_list = []
+        for i in range(len(posearray)):
+            pose = posearray[i]
+            pos = pose.position 
+            ori = pose.orientation
+
+            x,y,z = pos.x, pos.y, pos.z 
+            qx, qy, qz, qw = ori.x, ori.y, ori.z, ori.w 
+            print("qx, qy, qz, qw",qx, qy, qz, qw)
+
+            yaw = np.arctan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz))
+
+            waypoints_list.append([x,y,z,yaw])
+
+        self.waypoints_list = np.array(waypoints_list)
+        self.current_waypoint_id = 0
 
     
     def callback_state(self, data):
-       global current_pose
-       current_pose = np.array([data.pose.position.x, data.pose.position.y, data.pose.position.z])
+    #    global current_pose
+        qx, qy, qz, qw = data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w
+        yaw = np.arctan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz))
+        # print("Current pose: {}, {}, {}, {}".format(data.pose.position.x, data.pose.position.y, data.pose.position.z, yaw))
+        self.current_pose = np.array([data.pose.position.x, data.pose.position.y, data.pose.position.z, yaw])
     
     def callback_vicon(self, data):
         global vicon_pose
@@ -119,40 +147,74 @@ class PID_Controller:
         
             
     def callback_Prediction(self, data):
-        global target_pose, current_pose, new_message_received, prediction_count, accumulated_backoff, current_mode, mode_count
+        global target_pose, new_message_received, prediction_count, accumulated_backoff, current_mode, mode_count
         new_message_received = True
         # backoff = 0.01*(prediction_count)*data.x
         # if accumulated_backoff<-1.5:
         #     backoff=0
-        target_pose = np.array([data.position.x+current_pose[0], data.position.y+current_pose[1], data.position.z+current_pose[2]])
+        target_pose = np.array([data.position.x+self.current_pose[0], data.position.y+self.current_pose[1], data.position.z+self.current_pose[2]])
         current_mode = int(data.orientation.x)
 
         if current_mode == 4:
             print("Prediction Mode: ",current_mode, " Target: ",target_pose)
 
-    def PI_loop(self,):
-        global new_message_received, target_pose, current_pose, prediction_on, target_pose_p, accumulated_backoff
+    def compute_target_pose(self):
+        current_pos = self.current_pose[:3]
+        dist = np.linalg.norm(self.waypoints_list[self.current_waypoint_id:, :3]-current_pos, axis=1)
+        indices = np.where(dist <= 0.5)[0]
+        if indices.size > 0:
+            idx = indices[0]+self.current_waypoint_id
+        else:
+            idx = np.argmin(dist)+self.current_waypoint_id
+        print(self.current_waypoint_id, dist[idx-self.current_waypoint_id])
+        self.current_waypoint_id = idx
+        return idx
 
-        active_target_pose = np.copy(target_pose)
+    def normalize_angle(self, angle):
+        """Normalize angle to be within [-pi, pi]."""
+        angle = angle%(np.pi*2)
+        while angle > np.pi:
+            angle -= 2.0 * np.pi
+        while angle < -np.pi:
+            angle += 2.0 * np.pi
+        return angle
+
+    def PI_loop(self,):
+        global new_message_received, target_pose, prediction_on, target_pose_p, accumulated_backoff
+
+        # active_target_pose = np.copy(target_pose)
 
         integral_error = np.array([0.0, 0.0, 0.0])
         previous_error = np.array([0.0, 0.0, 0.0])
 
         start_x = None
         if prediction_on:
-            start_x = current_pose[0]
+            start_x = self.current_pose[0]
 
 
-        # rospy.loginfo("Starting velPID ctrl, current state: {}, target pos: {}".format(current_pose, active_target_pose))
-        while not rospy.is_shutdown() and not self._reached_target_position(current_pose, active_target_pose):
+        # rospy.loginfo("Starting velPID ctrl, current state: {}, target pos: {}".format(self.current_pose, active_target_pose))
+        while not rospy.is_shutdown():
+            print("pid loop")
             starttime = time.time()
+            if self.waypoints_list.size<=0:
+                break 
+
 
             # target_pose = np.copy(target_pose)
 
-            # self.position_history.append(current_pose)
+            # self.position_history.append(self.current_pose)
+            target_idx = self.compute_target_pose()
+            print("Loop running, waypoint idx: {}".format(target_idx+30))
+            print("Current Pose: {}".format(self.current_pose))
+            if target_idx+30>= self.waypoints_list.shape[0]:
+                active_target_pose = self.waypoints_list[-1,:] # TODO: Tweak this                 
+            else:
+                active_target_pose = self.waypoints_list[target_idx+30,:] # TODO: Tweak this 
 
             # Position Error
-            position_error = active_target_pose - current_pose
+            position_error = active_target_pose[:3] - self.current_pose[:3]
+            yaw_error = active_target_pose[3] - self.current_pose[3]
+            yaw_error = self.normalize_angle(yaw_error)
             # Integral Error
             integral_error += position_error * self.ctrl_dt
             integral_error[0] = max(min(integral_error[0], self.PID_integral_max), self.PID_integral_min)  # Clamping
@@ -165,6 +227,10 @@ class PID_Controller:
             # Compute PID velocity command
             velocity_command = self.K_p * position_error + self.K_i * integral_error + self.K_d * derivative_error
             
+            # Angular velocit coommand 
+            velocity_angular = 2 * yaw_error
+            print(active_target_pose[3], self.current_pose[3], yaw_error, velocity_angular)
+
             # print("cmd", velocity_command)
             velocity_command = self._limitVelocity(velocity_command)
 
@@ -172,16 +238,16 @@ class PID_Controller:
      
             vel_cmd = geometry_msgs.TwistStamped()
             vel_cmd.twist.linear = Vector3(velocity_command[0], velocity_command[1], velocity_command[2])
-            vel_cmd.twist.angular = Vector3(0.0, 0.0, 0.0)
+            vel_cmd.twist.angular = Vector3(0.0, 0.0, velocity_angular)
             self.pub.publish(vel_cmd)
-            # rospy.loginfo("Publishing VelY to Ctrl: {}, Current state :{}, timestamp: {}".format(velocity_command[1], current_pose, time.time()))
+            # rospy.loginfo("Publishing VelY to Ctrl: {}, Current state :{}, timestamp: {}".format(velocity_command[1], self.current_pose, time.time()))
 
             # Update previous error
             previous_error = position_error
             # print("runtime: ",time.time()-starttime)
 
-            if new_message_received:
-                break
+            # if new_message_received:
+            #     break
 
             # if velocity_command[0] >= 1 and current_mode ==4:
             #     rospy.signal_shutdown("Manual shutdown")
@@ -189,10 +255,11 @@ class PID_Controller:
             self.rate.sleep()  
    
     def main(self):
-        global new_message_received,target_pose, current_pose, prediction_on, mode_count
+        global new_message_received,target_pose, prediction_on, mode_count
 
         while not rospy.is_shutdown():
             #Add prediciotn siwth here
+
  
             new_message_received = False
 
@@ -202,12 +269,12 @@ class PID_Controller:
             # ROS Logging 
             self.log_data.data[0] = int(prediction_on)
             self.log_data.data[1] = int(new_message_received)
-            self.log_data.data[2] = current_pose[0]
-            self.log_data.data[3] = current_pose[1]
-            self.log_data.data[4] = current_pose[2]
-            self.log_data.data[5] = target_pose[0]
-            self.log_data.data[6] = target_pose[1]
-            self.log_data.data[7] = target_pose[2]
+            self.log_data.data[2] = self.current_pose[0]
+            self.log_data.data[3] = self.current_pose[1]
+            self.log_data.data[4] = self.current_pose[2]
+            self.log_data.data[5] = 0
+            self.log_data.data[6] = 0
+            self.log_data.data[7] = 0
             self.log_data.data[8] = vicon_pose[0]
             self.log_data.data[9] = vicon_pose[1]
             self.log_data.data[10] = vicon_pose[2]
