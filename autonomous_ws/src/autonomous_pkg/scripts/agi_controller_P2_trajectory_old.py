@@ -13,7 +13,7 @@ import pickle
 import time
 import signal
 import numpy.linalg as la
-from pyquaternion import Quaternion
+
 
 target_pose = None
 target_pose_p = None
@@ -34,8 +34,8 @@ class PID_Controller:
         global target_pose, current_pose, vicon_pose
       
         # Control Parameters:
-        self.K_p = 1.2
-        self.K_i = 0.9
+        self.K_p = 0.85
+        self.K_i = 0.6
         self.K_d = 0.0
 
         # self.K_p = 0.72
@@ -58,16 +58,14 @@ class PID_Controller:
         
         self.pub_log = rospy.Publisher('/log_messages_ctrl', Float64MultiArray, queue_size=10)
         self.log_data = Float64MultiArray()
-        self.log_data.data = [0, ] * (2 + 3 + 3 + 3 + 2 +1)
+        self.log_data.data = [0, ] * (2 + 3 + 3 + 3 + 1)
 
 
         # rospy.Subscriber('/fake_waypoint',Point, self.callback_fake,queue_size=1)      
         rospy.Subscriber('/fake_waypoint_list', PoseArray, self.callback_fake, queue_size=1)
 
         self.waypoints_list = np.array([])
-        self.accumulated_dist_list = np.array([])
         self.current_waypoint_id = 0
-        self.active_target_pose = None
         # rospy.Subscriber('/leader_waypoint',PointStamped, self.callback,queue_size=1)
 
         self.current_pose = None 
@@ -80,11 +78,8 @@ class PID_Controller:
         signal.signal(signal.SIGINT, self.signal_handler)
 
         vicon_pose = np.array([0,0,0])
-        while self.waypoints_list.size<=0 or self.accumulated_dist_list.size<=0 or vicon_pose is None or self.current_pose is None:
-            print(self.waypoints_list.size, self.accumulated_dist_list.size, vicon_pose, self.current_pose)
+        while self.waypoints_list.size<=0 or vicon_pose is None or self.current_pose is None:
             rospy.sleep(0.1) 
-
-        print("started")
 
         self.initial_vicon_state = vicon_pose
 
@@ -108,14 +103,9 @@ class PID_Controller:
         # target_pose = np.array([data.x, data.y, data.z])
         
         # print("Spotted Marker",target_pose)
-        if self.waypoints_list.size>0:
-            print("rejecting repeated waypoints list")
-            return
         print("message received")
-        posearray = data.poses
-        print("Length: {}".format(len(posearray))) 
+        posearray = data.poses 
         waypoints_list = []
-        accumulated_dist_list = []
         for i in range(len(posearray)):
             pose = posearray[i]
             pos = pose.position 
@@ -123,40 +113,20 @@ class PID_Controller:
 
             x,y,z = pos.x, pos.y, pos.z 
             qx, qy, qz, qw = ori.x, ori.y, ori.z, ori.w 
-            # print("qx, qy, qz, qw",qx, qy, qz, qw)
+            print("qx, qy, qz, qw",qx, qy, qz, qw)
 
-            # yaw = np.arctan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz))
-            q = Quaternion(qw, qx, qy, qz)
-            yaw = q.yaw_pitch_roll[0]
+            yaw = np.arctan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz))
 
             waypoints_list.append([x,y,z,yaw])
 
-            if i==0:
-                accumulated_dist_list.append(0)
-            else:
-                prev_x, prev_y, prev_z = posearray[i-1].position.x,posearray[i-1].position.y,posearray[i-1].position.z
-                accumulated_dist_list.append(
-                    accumulated_dist_list[-1]
-                    + np.linalg.norm([x-prev_x, y-prev_y, z-prev_z]))
-
-        waypoints_list = np.array(waypoints_list)
-        dist = np.linalg.norm(self.current_pose-waypoints_list[0,:])
-        if dist>0.5:
-            print("Starting point far away from current pose, Reject")
-            return 
-        self.waypoints_list = waypoints_list
+        self.waypoints_list = np.array(waypoints_list)
         self.current_waypoint_id = 0
-        self.accumulated_dist_list = np.array(accumulated_dist_list)
-        self.active_target_pose = self.waypoints_list[0,:]
-        np.savez('waypoints.npz', waypoints_list = self.waypoints_list, accumulated_dist_list = self.accumulated_dist_list)
+
     
     def callback_state(self, data):
     #    global current_pose
         qx, qy, qz, qw = data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w
-        # yaw = np.arctan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz))
-        q = Quaternion(qw, qx, qy, qz)
-        yaw = q.yaw_pitch_roll[0]
-
+        yaw = np.arctan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz))
         # print("Current pose: {}, {}, {}, {}".format(data.pose.position.x, data.pose.position.y, data.pose.position.z, yaw))
         self.current_pose = np.array([data.pose.position.x, data.pose.position.y, data.pose.position.z, yaw])
     
@@ -187,49 +157,25 @@ class PID_Controller:
         if current_mode == 4:
             print("Prediction Mode: ",current_mode, " Target: ",target_pose)
 
-    def get_front_back_offset(self, front_back_dist=2.0):
-        waypoint_dist = self.accumulated_dist_list[self.current_waypoint_id:]-self.accumulated_dist_list[self.current_waypoint_id]
-        idx = np.argmin(np.abs(waypoint_dist - front_back_dist))
-        return idx
-
-
-    def compute_current_waypoint(self):
+    def compute_target_pose(self):
         current_pos = self.current_pose[:3]
-        front_back_offset = self.get_front_back_offset()
-        dist = np.linalg.norm(self.waypoints_list[max(self.current_waypoint_id-front_back_offset,0):self.current_waypoint_id+front_back_offset, :3]-current_pos, axis=1)
-        # indices = np.where(dist <= 0.5)[0]
-        # if indices.size > 0:
-        #     idx = indices[0]+self.current_waypoint_id
-        #     idx = np.argmin(dist[indices[0]:indices[0]+50])+indices[0]+self.current_waypoint_id
-        # else:
-        idx = np.argmin(dist)+max(self.current_waypoint_id-front_back_offset,0)
+        dist = np.linalg.norm(self.waypoints_list[self.current_waypoint_id:, :3]-current_pos, axis=1)
+        indices = np.where(dist <= 0.5)[0]
+        if indices.size > 0:
+            idx = indices[0]+self.current_waypoint_id
+        else:
+            idx = np.argmin(dist)+self.current_waypoint_id
         print(self.current_waypoint_id, dist[idx-self.current_waypoint_id])
         self.current_waypoint_id = idx
         return idx
-    
-    def compute_active_target_pose(self):
-        current_pos = self.current_pose[:3]
-        active_target_pos = self.active_target_pose[:3]
-        dist = np.linalg.norm(current_pos-active_target_pos)
-        if dist > 0.1:
-            return self.active_target_pose, self.current_waypoint_id
-        else:
-            pass 
-            
 
     def normalize_angle(self, angle):
         """Normalize angle to be within [-pi, pi]."""
-        angle = angle%(np.pi*2.0)
         while angle > np.pi:
             angle -= 2.0 * np.pi
         while angle < -np.pi:
             angle += 2.0 * np.pi
         return angle
-
-    def compute_look_ahead(self, target_idx, lookahead_dist = 0.1):
-        waypoint_dist = self.accumulated_dist_list[target_idx:]-self.accumulated_dist_list[target_idx]
-        idx = np.argmin(np.abs(waypoint_dist - lookahead_dist))
-        return idx
 
     def PI_loop(self,):
         global new_message_received, target_pose, prediction_on, target_pose_p, accumulated_backoff
@@ -243,7 +189,7 @@ class PID_Controller:
         if prediction_on:
             start_x = self.current_pose[0]
 
-        prev_yaw_error = None
+
         # rospy.loginfo("Starting velPID ctrl, current state: {}, target pos: {}".format(self.current_pose, active_target_pose))
         while not rospy.is_shutdown():
             print("pid loop")
@@ -255,24 +201,18 @@ class PID_Controller:
             # target_pose = np.copy(target_pose)
 
             # self.position_history.append(self.current_pose)
-            target_idx = self.compute_current_waypoint()
-            look_ahead = self.compute_look_ahead(target_idx, lookahead_dist=0.2)
-            print("Loop running, waypoint idx: {}".format(target_idx+look_ahead))
+            target_idx = self.compute_target_pose()
+            print("Loop running, waypoint idx: {}".format(target_idx+25))
             print("Current Pose: {}".format(self.current_pose))
-            if target_idx+look_ahead>= self.waypoints_list.shape[0]:
+            if target_idx+25>= self.waypoints_list.shape[0]:
                 active_target_pose = self.waypoints_list[-1,:] # TODO: Tweak this                 
             else:
-                active_target_pose = self.waypoints_list[target_idx+look_ahead,:] # TODO: Tweak this 
-            print("Current waypoint: {}".format(active_target_pose))
+                active_target_pose = self.waypoints_list[target_idx+25,:] # TODO: Tweak this 
+
             # Position Error
             position_error = active_target_pose[:3] - self.current_pose[:3]
             yaw_error = active_target_pose[3] - self.current_pose[3]
             yaw_error = self.normalize_angle(yaw_error)
-            if prev_yaw_error is None:
-                prev_yaw_error = yaw_error 
-            elif abs(yaw_error-prev_yaw_error)>np.pi/2:
-                print("Huge yaw eror {}, {}, {}".format(yaw_error,prev_yaw_error,abs(yaw_error-prev_yaw_error)))
-                # break
             # Integral Error
             integral_error += position_error * self.ctrl_dt
             integral_error[0] = max(min(integral_error[0], self.PID_integral_max), self.PID_integral_min)  # Clamping
@@ -310,24 +250,6 @@ class PID_Controller:
             # if velocity_command[0] >= 1 and current_mode ==4:
             #     rospy.signal_shutdown("Manual shutdown")
 
-            # ROS Logging 
-            self.log_data.data[0] = int(prediction_on)
-            self.log_data.data[1] = int(new_message_received)
-            self.log_data.data[2] = self.current_pose[0]
-            self.log_data.data[3] = self.current_pose[1]
-            self.log_data.data[4] = self.current_pose[2]
-            self.log_data.data[5] = active_target_pose[0]
-            self.log_data.data[6] = active_target_pose[1]
-            self.log_data.data[7] = active_target_pose[2]
-            self.log_data.data[8] = vicon_pose[0]
-            self.log_data.data[9] = vicon_pose[1]
-            self.log_data.data[10] = vicon_pose[2]
-            self.log_data.data[11] = target_idx 
-            self.log_data.data[12] = look_ahead 
-            now = rospy.get_rostime()
-            now = now.to_sec()
-            self.log_data.data[-1] = now
-            self.pub_log.publish(self.log_data)
             self.rate.sleep()  
    
     def main(self):
@@ -360,7 +282,6 @@ class PID_Controller:
             self.pub_log.publish(self.log_data)
 
             print("Exiting Vel-PID loop")
-            break
 
   
     def _reached_target_position(self, current_position, target_position):
@@ -420,7 +341,7 @@ class PID_Controller:
         max_x = 3.1
         min_x = -2.0
         max_z = 3.0
-        min_z = 0.1
+        min_z = 0.3
 
         if vicon_pose[0]>=max_x or vicon_pose[0]<=min_x:
             print("LIMIT REACHED X: {}".format(vicon_pose[0]))

@@ -209,13 +209,7 @@ class RRTStar:
         u_new = np.linspace(0, 1, num=len(path) * 5)
         smooth_path = np.column_stack(splev(u_new, tck))
 
-        # window_length = 21
-        # polyorder = 3
-        # smooth_path[:, 0] = savgol_filter(smooth_path[:, 0], window_length, polyorder)
-        # smooth_path[:, 1] = savgol_filter(smooth_path[:, 1], window_length, polyorder)
-        # smooth_path[:, 2] = savgol_filter(smooth_path[:, 2], window_length, polyorder)
-
-        # Optimize path
+        # Smoothing
         optimized_path = []
         for i in range(len(smooth_path)):
             point = smooth_path[i]
@@ -449,6 +443,7 @@ class RRTStar:
 
         return True
 
+        
     def check_gate_collision(self, node):
         if node.parent is None:
             return True
@@ -504,9 +499,6 @@ class RRTStar:
 
         return True
         
-        
-
-
 
     def find_near_nodes(self, new_node):
         nnode = len(self.node_list) + 1
@@ -643,14 +635,14 @@ def create_gate_list(scenario):
             (1.5, 3, 1, 0.395, 'X', '-'),  # Gate 3
             (0, 1.5, 0.5, 0.395, 'Y', '-'),  # Gate 4
         ]
-    elif scenario in ['circle-constant-z', 'circle-3-loop']:
+    elif scenario == 'circle-constant-z':
         return [
             (1.5, 0, 0.8, 0.395, 'X', '+'),  # Gate 1
             (3, 1.5, 0.8, 0.395, 'Y', '+'),  # Gate 2
             (1.5, 3, 0.8, 0.395, 'X', '-'),  # Gate 3
             (0, 1.5, 0.8, 0.395, 'Y', '-'),  # Gate 4
         ]
-    elif scenario == '2-circles':
+    elif scenario == 'figure-eight':
         return [
             (0.75, 0, 1, 0.395, 'X', '+'),  # Gate 1
             (1.5, 0.75, 1, 0.395, 'Y', '+'),  # Gate 2
@@ -661,17 +653,6 @@ def create_gate_list(scenario):
             (2.25, 3, 1, 0.395, 'X', '-'),  # Gate 7
             (1.5, 2.25, 1, 0.395, 'Y', '-'),  # Gate 8
         ]
-    elif scenario == 'figure-eight':
-        return [
-            (0.75, 0, 1, 0.395, 'X', '+'),  # Gate 1
-            (1.5, 0.75, 1, 0.395, 'Y', '+'),  # Gate 2
-            (0.75, 1.5, 1, 0.395, 'X', '-'),  # Gate 3
-            (0, 0.75, 1, 0.395, 'Y', '-'),  # Gate 4
-            (2.25, 1.5, 1, 0.395, 'X', '+'),  # Gate 5
-            (3, 0.75, 1, 0.395, 'Y', '+'),  # Gate 6
-            (2.25, 1.5, 1, 0.395, 'X', '-'),  # Gate 7
-            (2.25, 0, 1, 0.395, 'X', '+'),  # Gate 8
-        ]
     elif scenario == 'u-shape':
         return [
             (0, 1.5, 1, 0.395, 'Y', '+'),  # Gate 1
@@ -680,7 +661,7 @@ def create_gate_list(scenario):
         ]
     elif scenario == 'u-shape-2':
         return [
-            (1.5, -1.5, 1, 0.395, 'X', '+'),  # Gate 1
+            (1.5, 0, 1, 0.395, 'X', '+'),  # Gate 1
         ]
     elif scenario == 's-shape':
         return [
@@ -695,12 +676,8 @@ def create_gate_list(scenario):
 def create_gate_order(scenario):
     if scenario == 'circle' or scenario == 'circle-constant-z':
         return ['START', 0, 1, 2, 3, 0, 'END']
-    elif scenario == 'circle-3-loop':
-        return ['START', 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 'END']
-    elif scenario == '2-circles':
-        return ['START', 0, 1, 2, 3, 0, 1, 4, 5, 6, 7, 4, 'END']
     elif scenario == 'figure-eight':
-        return ['START', 0, 1, 4, 5, 7, 1, 2, 3, 0, 7, 'END']
+        return ['START', 0, 1, 2, 3, 0, 1, 4, 5, 6, 7, 4, 'END']
     elif scenario == 'u-shape':
         return ['START', 0, 1, 2, 'END']
     elif scenario == 'u-shape-2':
@@ -711,21 +688,12 @@ def create_gate_order(scenario):
         raise ValueError("Invalid scenario")
 
 def create_obstacle_list(scenario):
-    if scenario in ['circle', 'circle-3-loop', 'circle-constant-z', 'u-shape']:
+    if scenario in ['circle', 'circle-constant-z', 'u-shape', 'u-shape-2']:
         return [(1.5, 1.5, 0, 1.3, 3.0)]  # (x, y, z, radius, height)
-    elif scenario == '2-circles':
-        return [
-            (0.75, 0.75, 0, 0.55, 3.0),  # Obstacle in the first circle
-            (2.25, 2.25, 0, 0.55, 3.0)   # Obstacle in the second circle
-        ]
     elif scenario == 'figure-eight':
         return [
             (0.75, 0.75, 0, 0.55, 3.0),  # Obstacle in the first circle
-            (2.25, 0.75, 0, 0.55, 3.0)   # Obstacle in the second circle
-        ]
-    elif scenario == 'u-shape-2':
-        return [
-            (1.5, 0, 0, 1.3, 3.0)
+            (2.25, 2.25, 0, 0.55, 3.0)   # Obstacle in the second circle
         ]
     elif scenario == 's-shape':
         return []
@@ -741,11 +709,9 @@ def main_func(num_waypoints=500, scenario='circle', debug_visualization=False):
 
     start = [0, 0, 0.8]  # Start point
     end = [3, 0, 0.8]  # End point
-    # start = [0, 0, 1]  # Start point
-    # end = [3, 0, 0]  # End point
     if scenario == 'u-shape-2':
-        start = [0, 0, 1]
-        end = [3, 0, 1]
+        start = [0, 1.5, 1]
+        end = [3, 1.5, 1]
 
     print_scenario_details(scenario, gate_list, gate_order, start, end, obstacle_list, debug_visualization)
 
@@ -815,31 +781,40 @@ def main_func(num_waypoints=500, scenario='circle', debug_visualization=False):
 
     final_optimized_path[-1] = end
 
-    # Ensure constant distance between waypoints
-    total_distance = sum(np.linalg.norm(np.array(final_optimized_path[i]) - np.array(final_optimized_path[i-1])) 
-                         for i in range(1, len(final_optimized_path)))
-    desired_distance = total_distance / (num_waypoints - 1)
-
-    equidistant_path = [final_optimized_path[0]]
-    current_point = np.array(final_optimized_path[0])
-    remaining_path = final_optimized_path[1:]
-
-    while len(remaining_path) > 1:
-        vector = np.array(remaining_path[0]) - current_point
-        distance = np.linalg.norm(vector)
-        
-        if distance >= desired_distance:
-            new_point = current_point + (vector / distance) * desired_distance
-            equidistant_path.append(new_point)
-            current_point = new_point
+    gate_indices = []
+    for point in gate_order:
+        if point == 'START':
+            gate_indices.append(0)
+        elif point == 'END':
+            gate_indices.append(len(final_optimized_path) - 1)
         else:
-            remaining_path = remaining_path[1:]
+            gate = gate_list[point]
+            distances = [np.linalg.norm(np.array(gate[:3]) - np.array(p)) for p in final_optimized_path]
+            closest_index = np.argmin(distances)
+            gate_indices.append(closest_index)
+    gate_indices = sorted(list(set(gate_indices)))
 
-    equidistant_path.append(final_optimized_path[-1])
+    num_generated_waypoints = num_waypoints - len(gate_indices)
+    
+    interpolated_path = []
+    for i in range(len(gate_indices) - 1):
+        start_idx = gate_indices[i]
+        end_idx = gate_indices[i + 1]
+        segment = final_optimized_path[start_idx:end_idx + 1]
+        num_points = int(num_generated_waypoints * (end_idx - start_idx) / (len(final_optimized_path) - 1)) + 1
+        
+        t = np.linspace(0, 1, num_points)
+        x = np.interp(t, np.linspace(0, 1, len(segment)), [p[0] for p in segment])
+        y = np.interp(t, np.linspace(0, 1, len(segment)), [p[1] for p in segment])
+        z = np.interp(t, np.linspace(0, 1, len(segment)), [p[2] for p in segment])
+        
+        interpolated_segment = list(zip(x, y, z))
+        interpolated_path.extend(interpolated_segment)
 
-    final_path = equidistant_path
+    final_path = interpolated_path
 
-    # Calculate angles
+    final_path[-1] = end
+
     angles = []
     for i in range(len(final_path) - 1):
         angle = calculate_angle(final_path[i], final_path[i+1])
@@ -847,7 +822,6 @@ def main_func(num_waypoints=500, scenario='circle', debug_visualization=False):
     
     angles.append(angles[-1])
     
-    # Smooth angles
     smoothed_angles = np.arctan2(np.sin(angles), np.cos(angles))
 
     waypoints_with_theta = []
@@ -915,10 +889,8 @@ def main_func(num_waypoints=500, scenario='circle', debug_visualization=False):
     
     return waypoints_with_theta
 
-### TODO: Figure-eight scenario NOT WORKING
-
 if __name__ == '__main__':
-    scenario = 'circle-3-loop'
+    scenario = 'u-shape-2'
     result = main_func(num_waypoints=num_waypoints, scenario=scenario, debug_visualization=debug_visualization)
     if True or (not show_animation_2d and not show_animation_3d):
         print("Waypoints:")
@@ -926,7 +898,7 @@ if __name__ == '__main__':
             print(f"[{waypoint[0]:.2f}, {waypoint[1]:.2f}, {waypoint[2]:.2f}, {waypoint[3]:.2f}]")
 
 # if __name__ == '__main__':
-#     scenarios = ['circle', 'circle-constant-z', 'figure-eight', 'u-shape', 'u-shape-2' 's-shape']
+#     scenarios = ['circle', 'circle-constant-z', 'figure-eight', 'u-shape', 's-shape']
 #     for scenario in scenarios:
 #         result = main_func(num_waypoints=num_waypoints, scenario=scenario, debug_visualization=debug_visualization)
 #         print(f"Completed {scenario} scenario")

@@ -9,6 +9,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 from rrt_star_3d import main_func
+from pyquaternion import Quaternion
 
 def euler_to_quaternion(yaw):
     # Convert angles from degrees to radians if necessary
@@ -17,15 +18,18 @@ def euler_to_quaternion(yaw):
     # yaw = math.radians(yaw)
 
     # Compute the quaternion components
-    q_w = np.cos(yaw / 2)
-    q_x = 0.0  # Since roll and pitch are zero
-    q_y = 0.0  # Since roll and pitch are zero
-    q_z = np.sin(yaw / 2)
+    # q_w = np.cos(yaw / 2)
+    # q_x = 0.0  # Since roll and pitch are zero
+    # q_y = 0.0  # Since roll and pitch are zero
+    # q_z = np.sin(yaw / 2)
+    q = Quaternion(axis=[0,0,1], angle=yaw)
+    q_w, q_x, q_y, q_z = q.elements
 
     return (q_x, q_y, q_z, q_w)
 
 def waypoint():
-    waypoint_list = main_func(num_waypoints=500, scenario='circle-constant-z', debug_visualization=False)
+    # waypoint_list = main_func(num_waypoints=500, scenario='circle-constant-z', debug_visualization=False)
+    waypoint_list = main_func(num_waypoints=1300, scenario='circle-3-loop', debug_visualization=False)
 
     x = [i[0] for i in waypoint_list]
     y = [i[1] for i in waypoint_list]

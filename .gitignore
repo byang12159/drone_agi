@@ -6,3 +6,4 @@ __pycache__/
 **/devel/
 .DS_Store
 **/.DS_Store
+**.npz
