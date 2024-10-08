@@ -9,7 +9,6 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 from rrt_star_3d import main_func
-from pyquaternion import Quaternion
 
 def euler_to_quaternion(yaw):
     # Convert angles from degrees to radians if necessary
@@ -18,45 +17,70 @@ def euler_to_quaternion(yaw):
     # yaw = math.radians(yaw)
 
     # Compute the quaternion components
-    # q_w = np.cos(yaw / 2)
-    # q_x = 0.0  # Since roll and pitch are zero
-    # q_y = 0.0  # Since roll and pitch are zero
-    # q_z = np.sin(yaw / 2)
-    q = Quaternion(axis=[0,0,1], angle=yaw)
-    q_w, q_x, q_y, q_z = q.elements
+    q_w = np.cos(yaw / 2)
+    q_x = 0.0  # Since roll and pitch are zero
+    q_y = 0.0  # Since roll and pitch are zero
+    q_z = np.sin(yaw / 2)
 
     return (q_x, q_y, q_z, q_w)
 
 def waypoint():
-    waypoint_list = main_func(num_waypoints=500, scenario='circle-constant-z', debug_visualization=False)
-    # waypoint_list = main_func(num_waypoints=500, scenario='figure-eight', debug_visualization=False)
+    # from matplotlib.animation import FuncAnimation, PillowWriter
+    def xyz(args, real_t):
+        period, sizex, sizey, cx, cy = args
+        # print('period/sizex/sizey: ', period, sizex, sizey)
 
-    x = [i[0] for i in waypoint_list]
-    y = [i[1] for i in waypoint_list]
-    z = [i[2] for i in waypoint_list]
-    ya = [i[3] for i in waypoint_list]
+        if not period:
+            period = real_t[-1]
 
-    x_init = x[0]
-    y_init = y[0]
-    z_init = z[0]
-    yaw = ya
+        t = real_t / period * 2 * np.pi
+
+        # Parameters for the 2D ellipsoid
+        a = sizex  # semi-major axis in x direction
+        b = sizey  # semi-major axis in y direction
+        
+        # Parametric equations for a 2D ellipse
+        x = -a * np.sin(t)+cx
+        y = b * np.cos(t)+cy
+
+        z = np.ones_like(y) * 1
+        # TO RUN SADDLE, comment out above and comment in z=np.cos and z+=2.22
+        # z = np.cos(2*t)
+        # z += 1
+        # y += 0.5
+        # x += 1.5
+
+        return x, y, z
+
+    # import matplotlib.pyplot as plt
+    # from mpl_toolkits.mplot3d import Axes3D
+    dt = 0.05
+    x_list = []
+    y_list = []
+    z_list = []
+    xang_list = []
+    yang_list = []
+    zang_list = []
+    # yaw_list = []
+
+    x_init = 0.5
+    y_init = 1.0
+    z_init = 0
 
     prev_x = x_init 
     prev_y = y_init 
     prev_z = z_init 
 
     pose_list = []
-    for i in range(len(x)):
-        curr_x = x[i]
-        curr_y = y[i]
-        curr_z = z[i]
-        yaw = ya[i]
+    for i in range(1, 400):
+        x,y,z = xyz([20, 1.5, 1.5, 0.5, -0.5], 0.1*i)
+        yaw = np.arctan2(y-prev_y, x-prev_x)
         # plt.plot([x, prev_x], [y, prev_y],'b')
         # plt.plot([prev_x, prev_x+(x-prev_x)*3], [prev_y, prev_y+(y-prev_y)*3],'r')
 
-        prev_x = curr_x
-        prev_y = curr_y
-        prev_z = curr_z
+        prev_x = x 
+        prev_y = y 
+        prev_z = z
         qx, qy, qz, qw = euler_to_quaternion(yaw)
 
         pos = Point(x=prev_x, y=prev_y, z=prev_z)
@@ -65,6 +89,7 @@ def waypoint():
         pose = Pose(position=pos, orientation = ori)
 
         pose_list.append(pose)
+    # plt.show()
     return pose_list
 
 def talker():
@@ -106,3 +131,4 @@ if __name__ == '__main__':
         talker()
     except rospy.ROSInterruptException:
         pass
+    # waypoint()
