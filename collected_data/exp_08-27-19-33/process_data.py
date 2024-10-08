@@ -61,8 +61,8 @@ pf_ts = []
 pf_data = []
 for row in pf.iterrows():
     time_stamp = row[1]['timestamp']
-    if time_stamp > max_ctrl_ts:
-        break
+    # if time_stamp > max_ctrl_ts:
+    #     break
     data = list(ast.literal_eval(row[1]['data']))
     pf_ts.append(time_stamp)
     pf_data.append(copy.deepcopy(data))
@@ -74,8 +74,8 @@ t265_data = []
 t265_cov = []
 for row in t265.iterrows():
     time_stamp = row[1]['timestamp']
-    if time_stamp > max_ctrl_ts:
-        break
+    # if time_stamp > max_ctrl_ts:
+    #     break
     data = list(ast.literal_eval(row[1]['data']))
     cov = np.array(list(ast.literal_eval(row[1]['cov']))).reshape((6,6))
     
@@ -90,8 +90,8 @@ agivel_ts = []
 agivel_data = []
 for row in agivel.iterrows():
     time_stamp = row[1]['timestamp']
-    if time_stamp > max_ctrl_ts:
-        break
+    # if time_stamp > max_ctrl_ts:
+    #     break
     data = list(ast.literal_eval(row[1]['data']))
     agivel_ts.append(time_stamp)
     agivel_data.append(copy.deepcopy(data))
@@ -119,8 +119,8 @@ for i in range(vicon_ts.shape[0]):
         ts = vicon_ts[i]
         break
 
-start_ts = ts-3.75
-end_ts = ts+42
+start_ts = ts-3.5
+end_ts = ts+37.5
 print(f"start_ts: {start_ts}")
 start_idx, end_idx = find_index_range(vicon_ts, [start_ts, end_ts])
 vicon_step = vicon_ts[1] - vicon_ts[0]
@@ -142,9 +142,60 @@ for i in range(1,len(dist_diff)-1):
         vals = np.linspace(val_start, val_end, nan_end-nan_start+2)
         dist_diff[nan_start:nan_end] = vals[1:-1]
 
-if np.isnan(dist_diff[-1]):
-    dist_diff = dist_diff[:nan_start]
-    end_ts -= (vicon_ts[1]-vicon_ts[0])*(len(dist_diff)-nan_start)
+displacement=2.0
+aways = 0
+awaye = 0
+total_time = 0 
+tmp_ts = vicon_ts[start_idx:end_idx]
+for i in range(1, len(dist_diff)):
+    if dist_diff[i] > displacement+0.5 and not dist_diff[i-1]>displacement+0.5:
+        aways = i 
+        awaye = i+1 
+    elif dist_diff[i]>displacement+0.5:
+        awaye = awaye+1 
+    if dist_diff[i]>displacement+0.5 and i+1>=len(dist_diff):
+        ts_start = tmp_ts[aways-1]
+        ts_end = tmp_ts[awaye-1]
+        total_time = total_time + (ts_end-ts_start)
+    elif dist_diff[i]>displacement+0.5 and not dist_diff[i+1]>displacement+0.5:
+        ts_start = tmp_ts[aways-1]
+        ts_end = tmp_ts[awaye]
+        total_time = total_time + (ts_end-ts_start)
+print(f"frac chaser away: {total_time/40}")
+
+# start_idx, end_idx = find_index_range(pf_ts, [start_ts, end_ts])
+# tmp = pf_data[start_idx:end_idx]
+# tmp_ts = pf_ts[start_idx:end_idx]
+# sees = 0
+# seee = 0
+# total_lose_t = 0
+# for i in range(len(tmp_ts)):
+#     if tmp[i,17] == 1 and i == 0:
+#         sees = i+1
+#         seee = i+1 
+#     elif tmp[i,17] == 1 and tmp[i-1,17]!=1:
+#         sees = i 
+#         seee = i+1
+#     elif tmp[i,17] == 1:
+#         seee += 1
+#     if tmp[i,17] == 1 and i+1 >=len(tmp_ts):
+#         sees_ts = tmp_ts[sees-1]
+#         seee_ts = tmp_ts[seee-1]
+#         total_lose_t += (seee_ts - sees_ts)
+#     elif tmp[i,17] == 1 and tmp[i+1,17]!=1:
+#         sees_ts = tmp_ts[sees-1]
+#         seee_ts = tmp_ts[seee]
+#         total_lose_t += (seee_ts- sees_ts)
+# print(f"total time not see: {total_lose_t}")
+
+tmp = copy.deepcopy(dist_diff)
+for i in range(1,len(tmp)):
+    if np.abs(tmp[i] - tmp[i-1])>0.05:
+        tmp[i] = np.sign(tmp[i]-tmp[i-1])*0.05+tmp[i-1]
+
+# plt.plot(dist_diff)
+# plt.plot(tmp)
+# plt.show()
 
 dist_sum = (dist_diff*vicon_step).sum()
 dist_mean = dist_sum/(end_ts-start_ts)
@@ -164,18 +215,40 @@ re_idx = 0
 num_recovery = 0
 for i in range(start_idx, end_idx):
     mode = pf_data[i,6]
-    if mode == 3 and pf_data[i-1,6]!=3:
+    if (mode == 3 or mode ==4) and (pf_data[i-1,6]!=3 and pf_data[i-1,6]!=4):
         rs_idx = i 
         re_idx = i+1
         num_recovery += 1 
-    elif mode==3:
+    elif mode==3 or mode == 4:
         re_idx += 1 
 
-    if mode == 3 and pf_data[i+1,6]!=3:
+    if (mode == 3 or mode == 4) and (pf_data[i+1,6]!=3 and pf_data[i+1,6]!=4):
         total_time += (pf_ts[re_idx]-pf_ts[rs_idx]) 
+
+utotal_time = 0
+us_idx = 0
+us_idx = 0 
+num_us = 0
+for i in range(start_idx, end_idx):
+    prediction_count = pf_data[i,7]
+    if prediction_count>30 and pf_data[i-1,7]<=30:
+        us_idx = i 
+        ue_idx = i+1 
+        num_us += 1
+    elif prediction_count>30:
+        ue_idx += 1 
+
+    if prediction_count > 30 and pf_data[i+1, 7]<=30:
+        utotal_time += (pf_ts[ue_idx]-pf_ts[us_idx])
 
 print(f"total time in recovery: {total_time}")
 print(f"num_recovery: {num_recovery}")
+print(f'ASDT: {(40-total_time)}')
+print(f'total time in unstable mode: {utotal_time}')
+print(f'num transition to unstable mode: {num_us}')
+print(f'ASDT_um: {(40-utotal_time)}')
+print(f'max_dist: {(tmp).max()}')
+
 plt.figure(0)
 # plt.plot(ctrl_ts, ctrl_data[:,0], label='prediction_on')
 plt.plot(ctrl_ts, ctrl_data[:,2], label='current_x')
@@ -187,11 +260,11 @@ plt.plot(pf_ts, pf_data[:,0], label='pf_pos')
 plt.plot(pf_ts, pf_data[:,3], label='pf_v')
 plt.plot(pf_ts, pf_data[:,6], label='mode')
 plt.plot(vicon_ts, vicon_data[:,4], label='vicon_leadpos')
-plt.plot(vicon_ts, vicon_data[:,10], label='vicon_chasepos')
+# plt.plot(pf_ts, pf_data[:,17], label='detected?')
 # plt.plot(pf_ts, pf_data[:,7], label='prediciton_count')
 # plt.plot(t265_ts, t265_data[:,0], label='t265_x')
 # plt.plot(t265_ts, t265_cov[:,0,0],label='t265_cov')
-plt.plot(agivel_ts, agivel_data[:,0], label='agivel')
+# plt.plot(agivel_ts, agivel_data[:,0], label='agivel')
 plt.legend()
 
 plt.figure(1)
@@ -207,16 +280,15 @@ plt.plot(pf_ts, pf_data[:,1], label='kf_pos')
 plt.plot(pf_ts, pf_data[:,4], label='kf_v')
 plt.plot(pf_ts, pf_data[:,6], label='mode')
 plt.plot(vicon_ts, vicon_data[:,3], label='vicon_leaderpos')
-plt.plot(vicon_ts, vicon_data[:,9], label='vicon_chasepos')
 plt.plot(pf_ts, pf_data[:,13], label='pf_pos')
 plt.plot(pf_ts, pf_data[:,14], label='pf_v')
-# plt.plot([start_ts,start_ts],[-2,2],label='start_ts')
-# plt.plot([end_ts,end_ts],[-2,2],label='end_ts')
-# plt.plot([ts,ts],[-2,2],label='ts')
+plt.plot([start_ts,start_ts],[-2,2],label='start_ts')
+plt.plot([end_ts,end_ts],[-2,2],label='end_ts')
+plt.plot([ts,ts],[-2,2],label='ts')
 # plt.plot(pf_ts, pf_data[:,7], label='prediciton_count')
 # plt.plot(t265_ts, t265_data[:,1], label='t265_y')
 # plt.plot(t265_ts, t265_cov[:,1,1],label='t265_cov')
-plt.plot(agivel_ts, agivel_data[:,1], label='agivel')
+# plt.plot(agivel_ts, agivel_data[:,1], label='agivel')
 plt.legend()
 
 plt.figure(2)
@@ -232,11 +304,10 @@ plt.plot(pf_ts, pf_data[:,2], label='pf_pos')
 plt.plot(pf_ts, pf_data[:,5], label='pf_v')
 plt.plot(pf_ts, pf_data[:,6], label='mode')
 plt.plot(vicon_ts, vicon_data[:,5], label='vicon_pos')
-plt.plot(vicon_ts, vicon_data[:,11], label='vicon_chasepos')
 # plt.plot(pf_ts, pf_data[:,7], label='prediciton_count')
 # plt.plot(t265_ts, t265_data[:,2], label='t265_z')
 # plt.plot(t265_ts, t265_cov[:,2,2],label='t265_cov')
-plt.plot(agivel_ts, agivel_data[:,2], label='agivel')
+# plt.plot(agivel_ts, agivel_data[:,2], label='agivel')
 plt.legend()
 
 # plt.figure(3)
