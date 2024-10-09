@@ -79,7 +79,6 @@ class PID_Controller:
 
         signal.signal(signal.SIGINT, self.signal_handler)
 
-        vicon_pose = np.array([0,0,0])
         while self.waypoints_list.size<=0 or self.accumulated_dist_list.size<=0 or vicon_pose is None or self.current_pose is None:
             print(self.waypoints_list.size, self.accumulated_dist_list.size, vicon_pose, self.current_pose)
             rospy.sleep(0.1) 

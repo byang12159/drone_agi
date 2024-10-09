@@ -111,7 +111,7 @@ def talker():
     #     displacement_msg.y = y_list[i]
     #     displacement_msg.z = z_list[i]
 
-    for i in range(3):
+    for i in range(10):
         posearr_msg = PoseArray(poses = pose_list)
 
         pub.publish(posearr_msg)
