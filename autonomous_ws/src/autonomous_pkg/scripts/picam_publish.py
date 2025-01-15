@@ -8,6 +8,7 @@ from cv_bridge import CvBridge
 import mask_detection
 # import geometry_msgs.msg as geometry_msgs
 import os
+import opencv_gate
 
 import numpy as np
 import cv2
@@ -78,80 +79,88 @@ def detect_gate(cap=None, save=None, visualize=False):
         cleanup_cap = lambda : cap.release()
 
     ret, frame = cap.read()
+    marked_frame, gate_pos = opencv_gate.process_frame(frame)
+    if len(gate_pos) < 3:
+        print("No gate found")
+        gate_pos = None
+    else:
+        print(gate_pos)
+    return frame, gate_pos
     # timenow = time.time()
     # print("time1", timenow-starttimearuco)
 
-    edges_red = mask_detection.process_frame_red(frame)
-    contours_red, _ = cv2.findContours(edges_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    ellipses_red = mask_detection.detect_ellipses_in_contours(contours_red)
+    # edges_red = mask_detection.process_frame_red(frame)
+    # contours_red, _ = cv2.findContours(edges_red, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # ellipses_red = mask_detection.detect_ellipses_in_contours(contours_red)
 
-    ellipses = ellipses_red
-    ellipses_pair, radius_pair = mask_detection.select_best_double_ellipses(ellipses)
-    depth = None
-    center = None
-    gate_pos = None
-    if len(ellipses_pair) > 0:
-        if radius_pair[0] > radius_pair[1]:
-            ellipse = ellipses_pair[0]
-            ellipse_2 = ellipses_pair[1]
-        else:
-            ellipse = ellipses_pair[1]
-            ellipse_2 = ellipses_pair[0]
+    # ellipses = ellipses_red
+    # ellipses_pair, radius_pair = mask_detection.select_best_double_ellipses(ellipses)
+    # depth = None
+    # center = None
+    # gate_pos = None
+    # if len(ellipses_pair) > 0:
+    #     if radius_pair[0] > radius_pair[1]:
+    #         ellipse = ellipses_pair[0]
+    #         ellipse_2 = ellipses_pair[1]
+    #     else:
+    #         ellipse = ellipses_pair[1]
+    #         ellipse_2 = ellipses_pair[0]
 
-        if ellipse:
-            ellipse_points_1 = cv2.ellipse2Poly(
-                center=(int(ellipse[0][0]), int(ellipse[0][1])),
-                axes=(int(ellipse[1][0] / 2), int(ellipse[1][1] / 2)),
-                angle=int(ellipse[2]),
-                arcStart=0,
-                arcEnd=360,
-                delta=1
-            )
-            x_min_1, y_min_1, width_rect_1, height_rect_1 = cv2.boundingRect(ellipse_points_1)
+    #     if ellipse:
+    #         ellipse_points_1 = cv2.ellipse2Poly(
+    #             center=(int(ellipse[0][0]), int(ellipse[0][1])),
+    #             axes=(int(ellipse[1][0] / 2), int(ellipse[1][1] / 2)),
+    #             angle=int(ellipse[2]),
+    #             arcStart=0,
+    #             arcEnd=360,
+    #             delta=1
+    #         )
+    #         x_min_1, y_min_1, width_rect_1, height_rect_1 = cv2.boundingRect(ellipse_points_1)
 
-            cv2.rectangle(frame, (x_min_1, y_min_1), (x_min_1 + width_rect_1, y_min_1 + height_rect_1), (0, 255, 0), 2)
-            center_1 = (x_min_1+width_rect_1/2.0,y_min_1+height_rect_1/2.0)
-            depth_1 = mask_detection.calculate_depth(height_rect_1)
+    #         cv2.rectangle(frame, (x_min_1, y_min_1), (x_min_1 + width_rect_1, y_min_1 + height_rect_1), (0, 255, 0), 2)
+    #         center_1 = (x_min_1+width_rect_1/2.0,y_min_1+height_rect_1/2.0)
+    #         depth_1 = mask_detection.calculate_depth(height_rect_1)
 
 
-            ellipse_points_2 = cv2.ellipse2Poly(
-                center=(int(ellipse_2[0][0]), int(ellipse_2[0][1])),
-                axes=(int(ellipse_2[1][0] / 2), int(ellipse_2[1][1] / 2)),
-                angle=int(ellipse_2[2]),
-                arcStart=0,
-                arcEnd=360,
-                delta=1
-            )
-            x_min_2, y_min_2, width_rect_2, height_rect_2 = cv2.boundingRect(ellipse_points_2)
+    #         ellipse_points_2 = cv2.ellipse2Poly(
+    #             center=(int(ellipse_2[0][0]), int(ellipse_2[0][1])),
+    #             axes=(int(ellipse_2[1][0] / 2), int(ellipse_2[1][1] / 2)),
+    #             angle=int(ellipse_2[2]),
+    #             arcStart=0,
+    #             arcEnd=360,
+    #             delta=1
+    #         )
+    #         x_min_2, y_min_2, width_rect_2, height_rect_2 = cv2.boundingRect(ellipse_points_2)
 
-            cv2.rectangle(frame, (x_min_2, y_min_2), (x_min_2 + width_rect_2, y_min_2 + height_rect_2), (0, 255, 0), 2)
-            center_2 = (x_min_2+width_rect_2/2.0,y_min_2+height_rect_2/2.0)
-            depth_2 = mask_detection.calculate_depth(height_rect_2*mask_detection.scaling_ratio)
+    #         cv2.rectangle(frame, (x_min_2, y_min_2), (x_min_2 + width_rect_2, y_min_2 + height_rect_2), (0, 255, 0), 2)
+    #         center_2 = (x_min_2+width_rect_2/2.0,y_min_2+height_rect_2/2.0)
+    #         depth_2 = mask_detection.calculate_depth(height_rect_2*mask_detection.scaling_ratio)
 
-            center = ((center_1[0]+center_2[0])/2.0,(center_1[1]+center_2[1])/2.0)
-            if ellipse == ellipse_2:
-                depth = depth_1
-            else:
-                depth = (depth_1 + depth_2)/2
-            gate_pos = [center[0],center[1],depth]
-            cv2.putText(frame, f"Gate (Center: {gate_pos[0]},{gate_pos[1]}, Depth: {gate_pos[2]}):", (x_min_1, y_min_1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+    #         center = ((center_1[0]+center_2[0])/2.0,(center_1[1]+center_2[1])/2.0)
+    #         if ellipse == ellipse_2:
+    #             depth = depth_1
+    #         else:
+    #             depth = (depth_1 + depth_2)/2
+    #         gate_pos = [center[0],center[1],depth]
+    #         cv2.putText(frame, f"Gate (Center: {gate_pos[0]},{gate_pos[1]}, Depth: {gate_pos[2]}):", (x_min_1, y_min_1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
     
-    if gate_pos is None:
-        print("No gate found")
-    else:
-        print(gate_pos)
-    if save is not None:
-        # savefile = "image/{}.jpg".format(time.time())
-        # print(os.getcwd()+save)
-        cv2.imwrite(os.path.join("~",save), frame)
+    # if gate_pos is None:
+    #     print("No gate found")
+    # else:
+    #     print(gate_pos)
+    # if save is not None:
+    #     # savefile = "image/{}.jpg".format(time.time())
+    #     # print(os.getcwd()+save)
+    #     cv2.imwrite(os.path.join("~",save), frame)
 
-    if visualize:
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        cv2.imshow("camera view", gray)
+    # if visualize:
+    #     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    #     cv2.imshow("camera view", gray)
 
-    # timenow = time.time()
-    # print("time3", timenow-starttimearuco)
-    return frame, gate_pos
+    # # timenow = time.time()
+    # # print("time3", timenow-starttimearuco)
+    # return frame, gate_pos
+
 
 def get_camera():
     cap = cv2.VideoCapture(0)
